@@ -1,0 +1,7 @@
+# Credentials
+.vscode/sftp.json
+.env
+
+# OS / editor
+.DS_Store
+*.log

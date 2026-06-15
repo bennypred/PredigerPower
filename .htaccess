@@ -1,0 +1,13 @@
+Options -Indexes
+DirectoryIndex index.html
+
+# Block access to dot-files and git metadata
+<FilesMatch "^\.(git|htaccess|gitignore|DS_Store|env)">
+  Order allow,deny
+  Deny from all
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+</IfModule>

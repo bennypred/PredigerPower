@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P3 — Admin Panel</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .athlete-row { display:flex; align-items:center; gap:14px; padding:14px 16px; background:#18181b; border:1px solid #27272a; border-radius:12px; margin-bottom:8px; }
+    .stat-pill { background:#1d1d21; border:1px solid #2a2a2f; border-radius:8px; padding:6px 12px; text-align:center; }
+    .stat-pill .val { font-size:16px; font-weight:700; color:white; }
+    .stat-pill .lbl { font-size:10px; color:#71717a; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; }
+    .suggest-panel { animation: suggestIn 0.2s ease; }
+    @keyframes suggestIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+    .best-badge { display:inline-flex;align-items:center;gap:6px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25);border-radius:8px;padding:4px 10px;font-size:12px;color:#f97316;font-weight:600; }
+    .config-check-label { display:flex;align-items:center;gap:7px;background:#1c1c1f;border:1px solid #2a2a2f;border-radius:8px;padding:7px 12px;cursor:pointer;transition:border-color 0.15s; }
+  </style>
+</head>
+<body>
+  <div style="display:flex;min-height:100vh;">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="mobile-header-slot"></div>
+      <div class="p3-content" style="padding:28px 24px 48px;max-width:920px;margin:0 auto;">
+        <div id="page-content">
+          <div style="display:flex;align-items:center;justify-content:center;height:200px;">
+            <div style="width:36px;height:36px;border:3px solid #27272a;border-top-color:#f97316;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Athlete Modal -->
+  <div id="athlete-modal" style="display:none;" class="modal-backdrop">
+    <div class="modal" style="max-width:480px;width:100%;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="font-size:18px;font-weight:700;color:white;">Add New Athlete</div>
+        <button onclick="closeAthleteModal()" style="background:#27272a;border:none;color:#a1a1aa;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">&times;</button>
+      </div>
+
+      <!-- Form view -->
+      <div id="add-athlete-form">
+        <div style="display:flex;flex-direction:column;gap:13px;">
+          <div>
+            <label class="form-label">Full Name <span style="color:#ef4444;">*</span></label>
+            <input type="text" id="new-athlete-name" class="form-input" placeholder="Jane Doe">
+          </div>
+          <div>
+            <label class="form-label">Email Address <span style="color:#ef4444;">*</span></label>
+            <input type="email" id="new-athlete-email" class="form-input" placeholder="athlete@email.com">
+          </div>
+          <div>
+            <label class="form-label">Password <span style="color:#52525b;font-weight:400;">(optional — athlete can set later)</span></label>
+            <input type="password" id="new-athlete-password" class="form-input" placeholder="Leave blank to set later">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="form-label">Sport</label>
+              <select id="new-athlete-sport" class="form-select">
+                <option value="">— Select —</option>
+                <option>Baseball</option>
+                <option>Basketball</option>
+                <option>Football</option>
+                <option>Soccer</option>
+                <option>Softball</option>
+                <option>Track</option>
+                <option>Volleyball</option>
+                <option>Wrestling</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Gender</label>
+              <select id="new-athlete-gender" class="form-select">
+                <option value="">— Select —</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="form-label">Grade</label>
+              <select id="new-athlete-grade" class="form-select">
+                <option value="">— Select —</option>
+                <option value="9">9th</option>
+                <option value="10">10th</option>
+                <option value="11">11th</option>
+                <option value="12">12th</option>
+                <option value="College">College</option>
+                <option value="Pro">Pro</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Age</label>
+              <input type="number" id="new-athlete-age" class="form-input" placeholder="17" min="10" max="40">
+            </div>
+          </div>
+          <button onclick="addAthlete()" class="btn-primary" style="width:100%;padding:13px;margin-top:4px;">Create Athlete &amp; Generate Code</button>
+        </div>
+      </div>
+
+      <!-- Success view -->
+      <div id="add-athlete-success" style="display:none;text-align:center;padding:8px 0 4px;">
+        <div style="font-size:44px;margin-bottom:12px;">✓</div>
+        <div id="add-athlete-success-name" style="font-size:18px;font-weight:800;color:white;margin-bottom:20px;"></div>
+
+        <div style="background:rgba(249,115,22,0.08);border:2px solid rgba(249,115,22,0.4);border-radius:14px;padding:20px 24px;margin-bottom:20px;">
+          <div style="font-size:11px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;">Rack Station Athlete Code</div>
+          <div id="add-athlete-code-display" style="font-size:52px;font-weight:900;color:#f97316;font-family:monospace;letter-spacing:0.18em;line-height:1;"></div>
+          <div style="font-size:12px;color:#52525b;margin-top:10px;">Give this code to the athlete to log in at the rack station</div>
+        </div>
+
+        <div style="font-size:12px;color:#71717a;margin-bottom:20px;">The code is saved to their profile and visible on their athlete row in the Athletes tab.</div>
+        <button onclick="closeAthleteModal()" class="btn-primary" style="width:100%;padding:12px;">Done</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/exercises.js"></script>
+  <script src="js/admin.js"></script>
+  <script>
+    const _user = requireAuth()
+    if (_user) {
+      if (!isTrainer(_user)) {
+        window.location.href = 'dashboard.html'
+      } else {
+        initSupabase()
+        initSidebar(_user)
+        document.getElementById('mobile-header-slot').innerHTML = mobileHeader('Admin Panel')
+        initPage(_user)
+      }
+    }
+  </script>
+</body>
+</html>

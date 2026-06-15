@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P3 — Prediger Power Performance</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+    .login-box { width:100%; max-width:420px; }
+    .login-card { background:#111113; border:1px solid #1c1c1f; border-radius:20px; padding:32px; }
+    .logo-block { text-align:center; margin-bottom:32px; }
+    .logo-icon { width:72px; height:72px; border-radius:20px; background:#f97316; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 8px 32px rgba(249,115,22,0.35); margin-bottom:16px; }
+    .field { margin-bottom:20px; }
+    .demo-btn { width:100%; text-align:left; background:#1c1c1f; border:1px solid #2a2a2f; border-radius:10px; padding:10px 14px; color:#e4e4e7; font-size:13px; cursor:pointer; transition:background 0.15s; }
+    .demo-btn:hover { background:#27272a; }
+    .demo-btn span { font-weight:700; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <div class="logo-block">
+      <div class="logo-icon">
+        <span style="color:white;font-weight:900;font-size:28px;">P3</span>
+      </div>
+      <div style="color:white;font-size:28px;font-weight:900;letter-spacing:-0.5px;">Prediger Power</div>
+      <div style="color:#f97316;font-size:13px;font-weight:800;letter-spacing:0.2em;margin-top:2px;">PERFORMANCE</div>
+    </div>
+
+    <div class="login-card">
+      <!-- Mode tabs -->
+      <div style="display:flex;gap:0;margin-bottom:24px;background:#1c1c1f;border-radius:10px;padding:4px;">
+        <button id="tab-email" onclick="setLoginMode('email')"
+          style="flex:1;padding:8px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;background:#f97316;color:white;">
+          Email Login
+        </button>
+        <button id="tab-code" onclick="window.location.href='kiosk.html'"
+          style="flex:1;padding:8px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;background:transparent;color:#71717a;">
+          Athlete Code
+        </button>
+      </div>
+
+      <div id="error-box" style="display:none;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:12px 16px;font-size:13px;color:#f87171;margin-bottom:20px;"></div>
+
+      <!-- Email login -->
+      <form id="login-form">
+        <div class="field">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="email" class="form-input" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label class="form-label">Password</label>
+          <input type="password" id="password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button type="submit" id="submit-btn" class="btn-primary" style="width:100%;padding:14px;">
+          Sign In
+        </button>
+      </form>
+
+      <!-- Athlete code login -->
+      <div id="code-form" style="display:none;">
+        <div style="font-size:13px;color:#71717a;margin-bottom:20px;">Enter the code you received when you created your athlete profile.</div>
+        <div class="field">
+          <label class="form-label">Athlete Code</label>
+          <input type="text" id="athlete-code" class="form-input" placeholder="e.g. P3AJ4829"
+            style="text-transform:uppercase;letter-spacing:0.1em;font-weight:700;font-size:16px;" maxlength="10" autocomplete="off">
+        </div>
+        <button onclick="submitCode()" id="code-btn" class="btn-primary" style="width:100%;padding:14px;">
+          Sign In with Code
+        </button>
+      </div>
+
+      <!-- Demo mode hints -->
+      <div id="demo-section" style="margin-top:20px;padding-top:20px;border-top:1px solid #1c1c1f;">
+        <div style="font-size:11px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Demo Accounts — Click to Fill</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button class="demo-btn" onclick="fillDemo('benprediger@gmail.com','#Joshben1199')">
+            <span style="color:#f97316;">Trainer</span> &mdash; benprediger@gmail.com
+          </button>
+          <button class="demo-btn" onclick="fillDemo('alex@demo.com','demo')">
+            <span>Athlete</span> &mdash; alex@demo.com &nbsp;<span style="color:#52525b;">pw: demo &nbsp;·&nbsp; code: 101</span>
+          </button>
+          <button class="demo-btn" onclick="fillDemo('maya@demo.com','demo')">
+            <span>Athlete</span> &mdash; maya@demo.com &nbsp;<span style="color:#52525b;">pw: demo &nbsp;·&nbsp; code: 102</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:20px;">
+      <span style="color:#52525b;font-size:13px;">New athlete? </span>
+      <a href="signup.html" style="color:#f97316;font-size:13px;font-weight:600;text-decoration:none;">Create your profile →</a>
+    </div>
+    <div style="text-align:center;color:#3f3f46;font-size:12px;margin-top:12px;">© 2025 Prediger Power Performance</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    if (!DEMO_MODE) document.getElementById('demo-section').style.display = 'none'
+    redirectIfLoggedIn()
+
+    function setLoginMode(mode) {
+      const isEmail = mode === 'email'
+      document.getElementById('login-form').style.display  = isEmail ? 'block' : 'none'
+      document.getElementById('code-form').style.display   = isEmail ? 'none'  : 'block'
+      document.getElementById('tab-email').style.background = isEmail ? '#f97316' : 'transparent'
+      document.getElementById('tab-email').style.color      = isEmail ? 'white'   : '#71717a'
+      document.getElementById('tab-code').style.background  = isEmail ? 'transparent' : '#f97316'
+      document.getElementById('tab-code').style.color       = isEmail ? '#71717a' : 'white'
+      document.getElementById('error-box').style.display    = 'none'
+    }
+
+    function fillDemo(email, password) {
+      setLoginMode('email')
+      document.getElementById('email').value = email
+      document.getElementById('password').value = password
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async e => {
+      e.preventDefault()
+      const btn = document.getElementById('submit-btn')
+      const errBox = document.getElementById('error-box')
+      errBox.style.display = 'none'
+      btn.textContent = 'Signing in…'
+      btn.disabled = true
+
+      const { user, error } = await login(
+        document.getElementById('email').value.trim(),
+        document.getElementById('password').value
+      )
+
+      if (error) {
+        errBox.textContent = error
+        errBox.style.display = 'block'
+        btn.textContent = 'Sign In'
+        btn.disabled = false
+      } else {
+        window.location.href = 'dashboard.html'
+      }
+    })
+
+    async function submitCode() {
+      const btn = document.getElementById('code-btn')
+      const errBox = document.getElementById('error-box')
+      const code = document.getElementById('athlete-code').value.trim()
+      if (!code) { errBox.textContent = 'Enter your athlete code.'; errBox.style.display = 'block'; return }
+      errBox.style.display = 'none'
+      btn.textContent = 'Signing in…'
+      btn.disabled = true
+
+      const { user, error } = await loginWithCode(code)
+      if (error) {
+        errBox.textContent = error
+        errBox.style.display = 'block'
+        btn.textContent = 'Sign In with Code'
+        btn.disabled = false
+      } else {
+        window.location.href = 'dashboard.html'
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P3 — Message Board</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .msg-avatar { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; }
+    .msg-avatar.trainer { background:rgba(249,115,22,0.2); border:1px solid rgba(249,115,22,0.4); color:#f97316; }
+    .msg-avatar.athlete { background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.4); color:#818cf8; }
+    #compose-box { background:#111113; border:1px solid #1c1c1f; border-radius:16px; padding:20px; margin-bottom:28px; }
+    #compose-box textarea { width:100%; background:#1c1c1f; border:1px solid #2a2a2f; border-radius:10px; padding:12px 14px; color:white; font-size:14px; resize:vertical; min-height:80px; }
+    #compose-box textarea::placeholder { color:#52525b; }
+  </style>
+</head>
+<body>
+  <div style="display:flex;min-height:100vh;">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="mobile-header-slot"></div>
+      <div class="p3-content" style="padding:28px 24px 48px;max-width:760px;margin:0 auto;">
+        <div id="page-content">
+          <div style="display:flex;align-items:center;justify-content:center;height:200px;">
+            <div style="width:36px;height:36px;border:3px solid #27272a;border-top-color:#f97316;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/messages.js"></script>
+  <script>
+    const _user = requireAuth()
+    if (_user) {
+      initSupabase()
+      initSidebar(_user)
+      document.getElementById('mobile-header-slot').innerHTML = mobileHeader('Message Board')
+      initPage(_user)
+    }
+  </script>
+</body>
+</html>

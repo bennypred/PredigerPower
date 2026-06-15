@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P3 — Leaderboard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .board-row { display:flex; align-items:center; gap:16px; padding:14px 16px; border-radius:12px; background:#18181b; border:1px solid #27272a; margin-bottom:8px; transition:border-color 0.15s; }
+    .board-row:hover { border-color:#3f3f46; }
+    .board-row.top-row { border-color:rgba(249,115,22,0.25); background:rgba(249,115,22,0.04); }
+    .athlete-name { font-size:15px; font-weight:600; color:white; }
+    .athlete-sessions { font-size:12px; color:#71717a; }
+    .metric-value { font-size:22px; font-weight:800; color:white; text-align:right; }
+    .metric-unit { font-size:12px; color:#71717a; text-align:right; }
+  </style>
+</head>
+<body>
+  <div style="display:flex;min-height:100vh;">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="mobile-header-slot"></div>
+      <div class="p3-content" style="padding:28px 24px 48px;max-width:720px;margin:0 auto;">
+        <div id="page-content">
+          <div style="display:flex;align-items:center;justify-content:center;height:200px;">
+            <div style="width:36px;height:36px;border:3px solid #27272a;border-top-color:#f97316;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/leaderboard.js"></script>
+  <script>
+    const _user = requireAuth()
+    if (_user) {
+      initSupabase()
+      initSidebar(_user)
+      document.getElementById('mobile-header-slot').innerHTML = mobileHeader('Leaderboard')
+      initPage(_user)
+    }
+  </script>
+</body>
+</html>

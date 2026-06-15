@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P3 — Create Athlete Profile</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+    .signup-box { width:100%; max-width:480px; }
+    .signup-card { background:#111113; border:1px solid #1c1c1f; border-radius:20px; padding:32px; }
+    .logo-block { text-align:center; margin-bottom:28px; }
+    .logo-icon { width:64px; height:64px; border-radius:18px; background:#f97316; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 8px 32px rgba(249,115,22,0.35); margin-bottom:12px; }
+    .field { margin-bottom:16px; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+    .code-display { background:#0a0a0b; border:2px solid rgba(249,115,22,0.4); border-radius:14px; padding:24px; text-align:center; margin-bottom:20px; }
+    .code-value { font-size:36px; font-weight:900; color:#f97316; letter-spacing:0.12em; font-family:monospace; margin:8px 0; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease; }
+  </style>
+</head>
+<body>
+  <div class="signup-box">
+    <div class="logo-block">
+      <div class="logo-icon">
+        <span style="color:white;font-weight:900;font-size:24px;">P3</span>
+      </div>
+      <div style="color:white;font-size:24px;font-weight:900;letter-spacing:-0.5px;">Create Athlete Profile</div>
+      <div style="color:#f97316;font-size:12px;font-weight:800;letter-spacing:0.2em;margin-top:2px;">PREDIGER POWER PERFORMANCE</div>
+    </div>
+
+    <!-- Sign-up form -->
+    <div id="form-view" class="signup-card">
+      <div id="error-box" style="display:none;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:12px 16px;font-size:13px;color:#f87171;margin-bottom:20px;"></div>
+
+      <div class="field-row">
+        <div>
+          <label class="form-label">First Name</label>
+          <input type="text" id="first-name" class="form-input" placeholder="Alex" autocomplete="given-name">
+        </div>
+        <div>
+          <label class="form-label">Last Name</label>
+          <input type="text" id="last-name" class="form-input" placeholder="Johnson" autocomplete="family-name">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="form-label">Email <span style="color:#f97316;">*</span></label>
+        <input type="email" id="email" class="form-input" placeholder="you@example.com" autocomplete="email">
+        <div style="font-size:11px;color:#52525b;margin-top:5px;">Used to log in + your athlete code will be sent here.</div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label class="form-label">Password <span style="color:#f97316;">*</span></label>
+          <input type="password" id="password" class="form-input" placeholder="Min 6 characters" autocomplete="new-password">
+        </div>
+        <div>
+          <label class="form-label">Confirm Password <span style="color:#f97316;">*</span></label>
+          <input type="password" id="password-confirm" class="form-input" placeholder="Re-enter password" autocomplete="new-password">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label class="form-label">Age</label>
+          <input type="number" id="age" class="form-input" placeholder="16" min="10" max="25">
+        </div>
+        <div>
+          <label class="form-label">Grade</label>
+          <select id="grade" class="form-select">
+            <option value="">Select…</option>
+            <option value="6">6th Grade</option>
+            <option value="7">7th Grade</option>
+            <option value="8">8th Grade</option>
+            <option value="9">9th Grade (Freshman)</option>
+            <option value="10">10th Grade (Sophomore)</option>
+            <option value="11">11th Grade (Junior)</option>
+            <option value="12">12th Grade (Senior)</option>
+            <option value="College">College</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label class="form-label">Gender</label>
+          <select id="gender" class="form-select">
+            <option value="">Select…</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Prefer not to say</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Sport</label>
+          <select id="sport" class="form-select">
+            <option value="">Select…</option>
+            <option value="Baseball">Baseball</option>
+            <option value="Basketball">Basketball</option>
+            <option value="Football">Football</option>
+            <option value="Soccer">Soccer</option>
+            <option value="Softball">Softball</option>
+            <option value="Track">Track &amp; Field</option>
+            <option value="Volleyball">Volleyball</option>
+            <option value="Wrestling">Wrestling</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <button onclick="createProfile()" class="btn-primary" style="width:100%;padding:14px;margin-top:8px;font-size:15px;">
+        Create My Profile
+      </button>
+
+      <div style="text-align:center;margin-top:18px;">
+        <a href="index.html" style="color:#52525b;font-size:13px;text-decoration:none;">Already have an account? Sign In</a>
+      </div>
+    </div>
+
+    <!-- Success screen (hidden until code generated) -->
+    <div id="success-view" class="signup-card fade-in" style="display:none;">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:40px;margin-bottom:8px;">🎉</div>
+        <div style="font-size:20px;font-weight:800;color:white;margin-bottom:4px;">Profile Created!</div>
+        <div style="font-size:13px;color:#71717a;">You can sign in with your email + password, or use your athlete code at the rack station.</div>
+      </div>
+
+      <div class="code-display">
+        <div style="font-size:11px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Your Athlete Code</div>
+        <div class="code-value" id="generated-code">—</div>
+        <div style="font-size:12px;color:#52525b;margin-top:8px;">Write this down or screenshot it.</div>
+      </div>
+
+      <div id="email-status" style="display:none;text-align:center;font-size:13px;margin-bottom:16px;"></div>
+
+      <div id="athlete-summary" style="background:#1c1c1f;border-radius:10px;padding:14px;margin-bottom:20px;font-size:13px;color:#a1a1aa;line-height:1.7;"></div>
+
+      <button onclick="copyCode()" id="copy-btn"
+        style="width:100%;padding:12px;margin-bottom:10px;background:#1c1c1f;border:1px solid #3f3f46;border-radius:10px;color:#d4d4d8;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s;"
+        onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#3f3f46'">
+        Copy Code
+      </button>
+      <a href="index.html">
+        <button class="btn-primary" style="width:100%;padding:13px;font-size:15px;">Go to Login →</button>
+      </a>
+    </div>
+
+    <div style="text-align:center;color:#3f3f46;font-size:12px;margin-top:20px;">© 2025 Prediger Power Performance</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/signup.js"></script>
+</body>
+</html>
