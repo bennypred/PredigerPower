@@ -359,7 +359,7 @@ function buildConfigPanel(config) {
         <div id="lift-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
           ${allLifts.map(name => `
             <label style="display:flex;align-items:center;gap:7px;background:#1c1c1f;border:1px solid ${config.lifts.includes(name) ? '#f97316' : '#2a2a2f'};border-radius:8px;padding:7px 12px;cursor:pointer;transition:border-color 0.15s;">
-              <input type="checkbox" id="lbl_${name.replace(/\s+/g,'_')}" ${config.lifts.includes(name) ? 'checked' : ''}
+              <input type="checkbox" id="lbl_${name.replace(/\s+/g,'_')}" value="${name.replace(/"/g,'&quot;')}" ${config.lifts.includes(name) ? 'checked' : ''}
                 onchange="updateLBConfig()" style="accent-color:#f97316;width:14px;height:14px;">
               <span style="font-size:13px;color:#d4d4d8;font-weight:500;">${name}</span>
             </label>`).join('')}
@@ -391,9 +391,9 @@ function addCustomLift() {
   const wrap = document.createElement('label')
   wrap.style.cssText = 'display:flex;align-items:center;gap:7px;background:#1c1c1f;border:1px solid #f97316;border-radius:8px;padding:7px 12px;cursor:pointer;'
   wrap.innerHTML = `
-    <input type="checkbox" id="lbl_${name.replace(/\s+/g,'_')}" checked
+    <input type="checkbox" id="lbl_${name.replace(/\s+/g,'_')}" value="${name.replace(/"/g,'&quot;')}" checked
       onchange="updateLBConfig()" style="accent-color:#f97316;width:14px;height:14px;">
-    <span style="font-size:13px;color:#d4d4d8;font-weight:500;">${name}</span>
+    <span style="font-size:13px;color:#d4d4d8;font-weight:500;">${escapeHtml(name)}</span>
   `
   container.appendChild(wrap)
   input.value = ''
@@ -415,7 +415,7 @@ function saveAndApplyLBConfig() {
 
   const checkedLifts = [...new Set([...PRESET_LIFTS,
     ...Array.from(document.querySelectorAll('#lift-checkboxes input[type=checkbox]'))
-            .map(cb => cb.id.replace('lbl_','').replace(/_/g,' '))])]
+            .map(cb => cb.value || cb.id.replace('lbl_','').replace(/_/g,' '))])]
   const lifts = checkedLifts.filter(name => {
     const cbId = 'lbl_' + name.replace(/\s+/g,'_')
     return document.getElementById(cbId)?.checked

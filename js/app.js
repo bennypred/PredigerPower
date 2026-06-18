@@ -13,7 +13,8 @@ function initSupabase() {
 
 function initSidebar(currentUser) {
   const trainer = isTrainer(currentUser)
-  const initials = currentUser.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  const _name = currentUser.full_name || 'User'
+  const initials = _name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   const path = window.location.pathname
 
   const navItems = [
@@ -56,7 +57,7 @@ function initSidebar(currentUser) {
         <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:#1c1c1f;margin-bottom:8px;">
           <div class="avatar" style="width:32px;height:32px;font-size:12px;flex-shrink:0;">${initials}</div>
           <div style="flex:1;min-width:0;">
-            <div style="color:white;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${currentUser.full_name}</div>
+            <div style="color:white;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_name}</div>
             <div style="color:#71717a;font-size:11px;text-transform:capitalize;">${currentUser.role}</div>
           </div>
         </div>
@@ -128,7 +129,7 @@ function getAthleteById(id) {
   const local = lsGet('p3_demo_athletes') || []
   return DEMO_ATHLETES.find(a => a.id === id)
       || local.find(a => a.id === id)
-      || DEMO_TRAINER
+      || null
 }
 
 // ── LocalStorage helpers (demo data persistence) ──────────────
@@ -137,6 +138,16 @@ function lsGet(key) {
   try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
 }
 function lsSet(key, val) { localStorage.setItem(key, JSON.stringify(val)) }
+
+function escapeHtml(str) {
+  if (str == null) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 
 // ── Mobile header builder ──────────────────────────────────────
 

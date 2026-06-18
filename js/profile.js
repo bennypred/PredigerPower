@@ -333,12 +333,21 @@ function renderAttendanceSection(attendance) {
   // All-time sessions
   const presentAll = attendance.filter(r => r.status === 'present').length
 
-  // Streak: consecutive present records going back from today
-  const sortedRec = attendance.filter(r => r.date <= TODAY).sort((a, b) => b.date.localeCompare(a.date))
+  // Streak: consecutive calendar days with a present record, going back from today
+  const presentDates = attendance
+    .filter(r => r.status === 'present' && r.date <= TODAY)
+    .map(r => r.date)
+    .sort((a, b) => b.localeCompare(a))
   let streak = 0
-  for (const r of sortedRec) {
-    if (r.status === 'present') streak++
-    else break
+  for (let i = 0; i < presentDates.length; i++) {
+    if (i === 0) {
+      const daysSince = Math.round((new Date(TODAY) - new Date(presentDates[0])) / 864e5)
+      if (daysSince > 1) break
+    } else {
+      const dayDiff = Math.round((new Date(presentDates[i - 1]) - new Date(presentDates[i])) / 864e5)
+      if (dayDiff > 1) break
+    }
+    streak++
   }
 
   // Monthly attendance rate
@@ -866,7 +875,8 @@ function showInlineChart(key, kind) {
     })
 
   } else {
-    const liftName = key.replace(/_/g, ' ')
+    const lift = _allLifts.find(l => l.name.replace(/\s+/g, '_') === key)
+    const liftName = lift ? lift.name : key.replace(/_/g, ' ')
     const data = _liftHistory
       .filter(e => e.exercise_name === liftName)
       .sort((a, b) => a.date.localeCompare(b.date))

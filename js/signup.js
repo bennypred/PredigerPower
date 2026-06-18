@@ -48,6 +48,11 @@ async function createProfile() {
     errBox.style.display = 'block'
     return
   }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errBox.textContent = 'Please enter a valid email address.'
+    errBox.style.display = 'block'
+    return
+  }
   if (!password || password.length < 6) {
     errBox.textContent = 'Password must be at least 6 characters.'
     errBox.style.display = 'block'
@@ -125,8 +130,8 @@ function _showSuccess(athlete) {
   const grade = athlete.grade || ''
   document.getElementById('generated-code').textContent = athlete.athlete_code
   document.getElementById('athlete-summary').innerHTML = `
-    <strong style="color:white;">${athlete.full_name}</strong><br>
-    ${athlete.sport} &nbsp;·&nbsp; ${grade}${isNaN(grade) ? '' : 'th Grade'} &nbsp;·&nbsp;
+    <strong style="color:white;">${escapeHtml(athlete.full_name)}</strong><br>
+    ${escapeHtml(athlete.sport)} &nbsp;·&nbsp; ${escapeHtml(grade)}${isNaN(grade) ? '' : 'th Grade'} &nbsp;·&nbsp;
     ${athlete.gender === 'male' ? 'Male' : athlete.gender === 'female' ? 'Female' : 'N/A'} &nbsp;·&nbsp;
     Age ${athlete.age || '—'}
   `

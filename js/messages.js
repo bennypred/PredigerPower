@@ -173,6 +173,8 @@ function renderMsgCard(msg, user, isPrivate) {
   const init       = initials(msg.author?.full_name || '?')
   const isOwn      = msg.author_id === user.id
   const isVideo    = msg.media_type?.startsWith('video')
+  const safeAuthor = escapeHtml(msg.author?.full_name || 'Unknown')
+  const safeContent = escapeHtml(msg.content)
 
   return `
     <div class="message-card ${msg.is_pinned ? 'pinned' : ''}">
@@ -180,13 +182,13 @@ function renderMsgCard(msg, user, isPrivate) {
         <div class="msg-avatar ${authorRole}">${init}</div>
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-            <span style="font-size:14px;font-weight:600;color:white;">${msg.author?.full_name || 'Unknown'}</span>
+            <span style="font-size:14px;font-weight:600;color:white;">${safeAuthor}</span>
             <span class="badge badge-${authorRole}">${authorRole}</span>
             ${isPrivate ? `<span class="badge badge-private">Direct</span>` : ''}
             ${msg.is_pinned ? `<span class="badge badge-pinned">Pinned</span>` : ''}
             <span style="color:#52525b;font-size:12px;margin-left:auto;">${timeAgo(msg.created_at)}</span>
           </div>
-          ${msg.content ? `<div style="font-size:14px;color:#d4d4d8;line-height:1.6;">${msg.content}</div>` : ''}
+          ${safeContent ? `<div style="font-size:14px;color:#d4d4d8;line-height:1.6;white-space:pre-wrap;">${safeContent}</div>` : ''}
           ${msg.media_url ? (isVideo
             ? `<video src="${msg.media_url}" controls style="max-width:100%;max-height:320px;border-radius:10px;margin-top:10px;display:block;"></video>`
             : `<img src="${msg.media_url}" alt="attachment"

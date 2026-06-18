@@ -2,7 +2,31 @@
 // Prediger Power Performance — Authentication
 // ============================================================
 
-const SESSION_KEY = 'p3_session'
+const SESSION_KEY    = 'p3_session'
+const ATTEMPT_KEY    = 'p3_login_attempts'
+const MAX_ATTEMPTS   = 10
+const LOCKOUT_MS     = 15 * 60 * 1000
+
+function _getAttempts() {
+  try { return JSON.parse(localStorage.getItem(ATTEMPT_KEY) || 'null') } catch { return null }
+}
+function _recordAttempt() {
+  const now  = Date.now()
+  const data = _getAttempts()
+  if (!data || now - data.windowStart > LOCKOUT_MS) {
+    localStorage.setItem(ATTEMPT_KEY, JSON.stringify({ count: 1, windowStart: now }))
+    return { locked: false }
+  }
+  data.count++
+  localStorage.setItem(ATTEMPT_KEY, JSON.stringify(data))
+  return { locked: data.count > MAX_ATTEMPTS }
+}
+function _isLocked() {
+  const data = _getAttempts()
+  if (!data) return false
+  if (Date.now() - data.windowStart > LOCKOUT_MS) { localStorage.removeItem(ATTEMPT_KEY); return false }
+  return data.count > MAX_ATTEMPTS
+}
 
 function getSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') }
@@ -33,6 +57,7 @@ function redirectIfLoggedIn() {
 }
 
 async function loginWithCode(code) {
+  if (_isLocked()) return { user: null, error: 'Too many attempts. Please wait 15 minutes.' }
   const clean = code.trim().toUpperCase()
   if (DEMO_MODE) {
     if (DEMO_TRAINER.athlete_code === clean) {
@@ -43,10 +68,16 @@ async function loginWithCode(code) {
     const all   = [...DEMO_ATHLETES, ...local]
     const athlete = all.find(a => a.athlete_code === clean)
     if (athlete) { setSession(athlete); return { user: athlete, error: null } }
+    const { locked } = _recordAttempt()
+    if (locked) return { user: null, error: 'Too many attempts. Please wait 15 minutes.' }
     return { user: null, error: 'Invalid athlete code. Check your code and try again.' }
   }
-  const { data } = await window._supabase.from('profiles').select('*').eq('athlete_code', clean).single()
-  if (!data) return { user: null, error: 'Invalid athlete code.' }
+  const { data, error } = await window._supabase.from('profiles').select('*').eq('athlete_code', clean).single()
+  if (error || !data) {
+    const { locked } = _recordAttempt()
+    if (locked) return { user: null, error: 'Too many attempts. Please wait 15 minutes.' }
+    return { user: null, error: 'Invalid athlete code.' }
+  }
   setSession(data)
   return { user: data, error: null }
 }
@@ -54,8 +85,8 @@ async function loginWithCode(code) {
 async function login(email, password) {
   if (DEMO_MODE) {
     // Trainer
-    if (email.toLowerCase() === DEMO_TRAINER.email) {
-      if (DEMO_TRAINER.password && DEMO_TRAINER.password !== password) {
+    if (email.toLowerCase() === DEMO_TRAINER.email.toLowerCase()) {
+      if (DEMO_TRAINER.password !== password) {
         return { user: null, error: 'Incorrect password.' }
       }
       setSession(DEMO_TRAINER)
@@ -64,7 +95,7 @@ async function login(email, password) {
     // Built-in demo athletes
     const athlete = DEMO_ATHLETES.find(a => a.email.toLowerCase() === email.toLowerCase())
     if (athlete) {
-      if (athlete.password && athlete.password !== password) {
+      if (athlete.password !== password) {
         return { user: null, error: 'Incorrect password.' }
       }
       setSession(athlete)
@@ -74,7 +105,7 @@ async function login(email, password) {
     const local = lsGet('p3_demo_athletes') || []
     const localAthlete = local.find(a => a.email && a.email.toLowerCase() === email.toLowerCase())
     if (localAthlete) {
-      if (localAthlete.password && localAthlete.password !== password) {
+      if (localAthlete.password !== password) {
         return { user: null, error: 'Incorrect password.' }
       }
       setSession(localAthlete)

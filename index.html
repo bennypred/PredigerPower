@@ -12,9 +12,6 @@
     .logo-block { text-align:center; margin-bottom:32px; }
     .logo-icon { width:72px; height:72px; border-radius:20px; background:#f97316; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 8px 32px rgba(249,115,22,0.35); margin-bottom:16px; }
     .field { margin-bottom:20px; }
-    .demo-btn { width:100%; text-align:left; background:#1c1c1f; border:1px solid #2a2a2f; border-radius:10px; padding:10px 14px; color:#e4e4e7; font-size:13px; cursor:pointer; transition:background 0.15s; }
-    .demo-btn:hover { background:#27272a; }
-    .demo-btn span { font-weight:700; }
     @keyframes spin { to { transform:rotate(360deg); } }
   </style>
 </head>
@@ -71,21 +68,6 @@
         </button>
       </div>
 
-      <!-- Demo mode hints -->
-      <div id="demo-section" style="margin-top:20px;padding-top:20px;border-top:1px solid #1c1c1f;">
-        <div style="font-size:11px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Demo Accounts — Click to Fill</div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <button class="demo-btn" onclick="fillDemo('benprediger@gmail.com','#Joshben1199')">
-            <span style="color:#f97316;">Trainer</span> &mdash; benprediger@gmail.com
-          </button>
-          <button class="demo-btn" onclick="fillDemo('alex@demo.com','demo')">
-            <span>Athlete</span> &mdash; alex@demo.com &nbsp;<span style="color:#52525b;">pw: demo &nbsp;·&nbsp; code: 101</span>
-          </button>
-          <button class="demo-btn" onclick="fillDemo('maya@demo.com','demo')">
-            <span>Athlete</span> &mdash; maya@demo.com &nbsp;<span style="color:#52525b;">pw: demo &nbsp;·&nbsp; code: 102</span>
-          </button>
-        </div>
-      </div>
     </div>
 
     <div style="text-align:center;margin-top:20px;">
@@ -99,7 +81,6 @@
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    if (!DEMO_MODE) document.getElementById('demo-section').style.display = 'none'
     redirectIfLoggedIn()
 
     function setLoginMode(mode) {
@@ -111,12 +92,6 @@
       document.getElementById('tab-code').style.background  = isEmail ? 'transparent' : '#f97316'
       document.getElementById('tab-code').style.color       = isEmail ? '#71717a' : 'white'
       document.getElementById('error-box').style.display    = 'none'
-    }
-
-    function fillDemo(email, password) {
-      setLoginMode('email')
-      document.getElementById('email').value = email
-      document.getElementById('password').value = password
     }
 
     document.getElementById('login-form').addEventListener('submit', async e => {
