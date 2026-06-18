@@ -2,6 +2,11 @@
 // Prediger Power Performance — Authentication
 // ============================================================
 
+// Initialize Supabase client as soon as auth.js loads (covers all pages)
+if (!DEMO_MODE && typeof supabase !== 'undefined' && !window._supabase) {
+  window._supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+}
+
 const SESSION_KEY    = 'p3_session'
 const ATTEMPT_KEY    = 'p3_login_attempts'
 const MAX_ATTEMPTS   = 10
