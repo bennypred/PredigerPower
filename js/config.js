@@ -5,10 +5,10 @@
 // when you are ready to go fully live.
 // ============================================================
 
-const DEMO_MODE = true
+const DEMO_MODE = false
 
-const SUPABASE_URL          = 'https://YOUR_PROJECT_ID.supabase.co'
-const SUPABASE_ANON         = 'YOUR_SUPABASE_ANON_KEY'
+const SUPABASE_URL          = 'https://bnjfvbiuumtxtngqmieo.supabase.co'
+const SUPABASE_ANON         = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuamZ2Yml1dW10eHRuZ3FtaWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDE2MDcsImV4cCI6MjA5NzM3NzYwN30.oPo4ezJGRNcjYV_Ky0pWbgIrV49uNpr0uAQxVIbrDWY'
 const SUPABASE_SERVICE_ROLE = 'YOUR_SERVICE_ROLE_KEY'
 
 // ── EmailJS (for athlete code delivery) ──────────────────────
