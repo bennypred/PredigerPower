@@ -107,12 +107,11 @@ async function createProfile() {
     })
     if (error) throw error
 
-    // Update profile with all fields (trigger creates base row; we fill in extras)
-    const { error: profErr } = await window._supabase.from('profiles').upsert({
-      id: data.user.id, email, full_name: fullName, role: 'athlete',
-      athlete_code: code, sport, gender, grade,
-      age: age ? parseInt(age) : null,
-    }, { onConflict: 'id' })
+    // Trigger creates the base profile row; update it with the athlete's extra fields
+    const { error: profErr } = await window._supabase.from('profiles')
+      .update({ full_name: fullName, athlete_code: code, sport, gender, grade,
+                age: age ? parseInt(age) : null })
+      .eq('id', data.user.id)
     if (profErr) throw profErr
 
     _generatedCode  = code
