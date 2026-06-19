@@ -665,11 +665,18 @@ async function loadWorkoutForEdit(workoutId) {
           <span style="font-size:13px;font-weight:700;color:#f97316;">Editing: ${workout.title}</span>
           <span style="font-size:12px;color:#71717a;">— ${workout.scheduled_date}</span>
         </div>
-        <button onclick="cancelEdit()"
-          style="background:#1c1c1f;border:1px solid #27272a;color:#a1a1aa;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;"
-          onmouseover="this.style.color='white'" onmouseout="this.style.color='#a1a1aa'">
-          Cancel
-        </button>
+        <div style="display:flex;gap:8px;">
+          <button onclick="deleteWorkout()"
+            style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;"
+            onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">
+            Delete Workout
+          </button>
+          <button onclick="cancelEdit()"
+            style="background:#1c1c1f;border:1px solid #27272a;color:#a1a1aa;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;"
+            onmouseover="this.style.color='white'" onmouseout="this.style.color='#a1a1aa'">
+            Cancel
+          </button>
+        </div>
       </div>
     `)
   }
@@ -684,6 +691,27 @@ function cancelEdit() {
   _exerciseCount       = 1
   _adminProgWeekOffset = 0
   document.getElementById('panel_program').innerHTML = renderProgramForm(_adminAthletes)
+}
+
+async function deleteWorkout() {
+  if (!_editingWorkoutId) return
+  if (!confirm('Delete this workout? This cannot be undone.')) return
+
+  const id = _editingWorkoutId
+
+  if (DEMO_MODE) {
+    const saved = (lsGet('p3_demo_workouts') || []).filter(w => w.id !== id)
+    lsSet('p3_demo_workouts', saved)
+  } else {
+    const { error } = await window._supabase.from('workouts').delete().eq('id', id)
+    if (error) { showToast('Error deleting workout.', 'error'); return }
+  }
+
+  _editingWorkoutId    = null
+  _exerciseCount       = 1
+  _adminProgWeekOffset = 0
+  document.getElementById('panel_program').innerHTML = renderProgramForm(_adminAthletes)
+  showToast('Workout deleted.', 'success')
 }
 
 // ── Leaderboard Config ────────────────────────────────────────
