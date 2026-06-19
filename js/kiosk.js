@@ -80,13 +80,13 @@ async function prefetchAthleteWorkouts(athlete) {
       (w.athlete_id === athlete.id || inGroup(w) || (!w.athlete_id && !w.group_id))
     )
   } else {
-    const { data } = await window._supabase
-      .from('workouts').select('*, exercises(*)')
-      .gte('scheduled_date', startDate)
-      .lte('scheduled_date', endDate)
-      .or(`athlete_id.eq.${athlete.id},athlete_id.is.null`)
-      .order('scheduled_date')
-    weekWorkouts = data || []
+    // Use RPC so athlete-specific workouts are visible without a Supabase auth session
+    const { data } = await window._supabase.rpc('get_athlete_workouts_by_code', {
+      p_code:  athlete.athlete_code,
+      p_start: startDate,
+      p_end:   endDate,
+    })
+    weekWorkouts = (data || []).map(w => ({ ...w, exercises: w.exercises || [] }))
   }
 
   const byDate = {}
@@ -745,20 +745,7 @@ async function saveKioskLog(userId) {
 
     markAttendance(userId, date)
   } else {
-    // Production: save to Supabase using service role (kiosk acts on behalf of athlete)
     try {
-      const adminSB = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
-
-      if (Object.keys(metrics).length) {
-        await adminSB.from('performance_metrics').upsert(
-          Object.entries(metrics).map(([type, m]) => ({
-            athlete_id: userId, metric_type: type,
-            value: m.value, unit: m.unit, recorded_date: date,
-          })),
-          { onConflict: 'athlete_id,metric_type,recorded_date' }
-        )
-      }
-
       const logRows = exes.map(ex => {
         const sets   = logs[ex.id]?.sets || []
         const logged = sets.filter(s => s.weight || s.reps)
@@ -770,8 +757,6 @@ async function saveKioskLog(userId) {
         })
         return {
           exercise_id:   ex.id,
-          athlete_id:    userId,
-          logged_date:   date,
           actual_sets:   logged.length   || null,
           actual_reps:   bestReps        || null,
           actual_weight: bestWeight      || null,
@@ -779,11 +764,13 @@ async function saveKioskLog(userId) {
         }
       }).filter(r => r.actual_sets || r.actual_weight)
 
-      if (logRows.length) {
-        await adminSB.from('workout_logs').upsert(
-          logRows, { onConflict: 'exercise_id,athlete_id,logged_date' }
-        )
-      }
+      const { error } = await window._supabase.rpc('save_kiosk_log', {
+        p_code:          slot.user.athlete_code,
+        p_date:          date,
+        p_metrics:       Object.keys(metrics).length ? metrics : null,
+        p_exercise_logs: logRows.length ? logRows : null,
+      })
+      if (error) throw error
 
       _drafts[slotKey] = null
     } catch(e) {
