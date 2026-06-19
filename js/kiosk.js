@@ -80,23 +80,33 @@ async function prefetchAthleteWorkouts(athlete) {
       (w.athlete_id === athlete.id || inGroup(w) || (!w.athlete_id && !w.group_id))
     )
   } else {
-    // Use RPC so athlete-specific workouts are visible without a Supabase auth session
-    const { data } = await window._supabase.rpc('get_athlete_workouts_by_code', {
+    // RPC returns workouts for this athlete + all-athlete workouts; no auth session required
+    const { data, error } = await window._supabase.rpc('get_athlete_workouts_by_code', {
       p_code:  athlete.athlete_code,
       p_start: startDate,
       p_end:   endDate,
     })
+    if (error) {
+      console.error('Workout fetch error:', error)
+      showToast('Could not load workouts — check connection', 'error')
+    }
     weekWorkouts = (data || []).map(w => ({ ...w, exercises: w.exercises || [] }))
   }
 
+  // The RPC already filters to only this athlete's workouts — just index by date.
+  // For demo mode, re-apply the priority filter.
   const byDate = {}
   allDates.forEach(date => {
-    byDate[date] = weekWorkouts.find(w =>
-      w.scheduled_date === date &&
-      (w.athlete_id === athlete.id ||
-       (w.group_id && userGroupIds.includes(w.group_id)) ||
-       (!w.athlete_id && !w.group_id))
-    ) || null
+    if (DEMO_MODE) {
+      byDate[date] = weekWorkouts.find(w =>
+        w.scheduled_date === date &&
+        (w.athlete_id === athlete.id ||
+         (w.group_id && userGroupIds.includes(w.group_id)) ||
+         (!w.athlete_id && !w.group_id))
+      ) || null
+    } else {
+      byDate[date] = weekWorkouts.find(w => w.scheduled_date === date) || null
+    }
   })
   return byDate
 }
