@@ -1705,8 +1705,7 @@ function deleteAthlete(id) {
 
   ;(async () => {
     try {
-      const adminSB = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
-      const { error } = await adminSB.auth.admin.deleteUser(id)
+      const { error } = await window._supabase.rpc('delete_athlete', { p_athlete_id: id })
       if (error) throw error
 
       _adminAthletes = _adminAthletes.filter(a => a.id !== id)
