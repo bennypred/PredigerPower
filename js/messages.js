@@ -5,11 +5,26 @@
 let _currentUser  = null
 let _msgTab       = 'public'
 let _mediaFile    = null
-let _mediaDataUrl = null   // data URL (images) or blob URL (videos, session-only)
+let _mediaDataUrl = null
+let _athletes     = []   // athletes list for trainer's DM compose box
+let _trainerId    = null // real trainer ID for athlete → trainer DMs
 
 async function initPage(user) {
   _currentUser = user
   _msgTab = 'public'
+
+  if (!DEMO_MODE) {
+    if (isTrainer(user)) {
+      const { data } = await window._supabase
+        .from('profiles').select('id, full_name').eq('role', 'athlete').order('full_name')
+      _athletes = data || []
+    } else {
+      const { data } = await window._supabase
+        .from('profiles').select('id').eq('role', 'trainer').single()
+      _trainerId = data?.id || null
+    }
+  }
+
   renderPage(user, await getMessages(user))
 }
 
@@ -129,8 +144,9 @@ function renderComposeBox(user, isPrivate) {
     ? (isTrainer(user) ? 'Write a private message to an athlete…' : 'Write a message to your trainer…')
     : 'Write something to the team…'
 
-  const allAthletes = [...(lsGet('p3_demo_athletes') || []), ...DEMO_ATHLETES]
-    .filter((a, i, arr) => arr.findIndex(x => x.id === a.id) === i)
+  const allAthletes = DEMO_MODE
+    ? [...(lsGet('p3_demo_athletes') || []), ...DEMO_ATHLETES].filter((a, i, arr) => arr.findIndex(x => x.id === a.id) === i)
+    : _athletes
 
   return `
     <div style="background:#111113;border:1px solid #1c1c1f;border-radius:16px;padding:20px;margin-bottom:24px;">
@@ -275,7 +291,8 @@ async function postMessage(isPrivate = false) {
       recipient = recipSel?.value || null
       if (!recipient) { showToast('Select a recipient first.', 'error'); return }
     } else {
-      recipient = DEMO_TRAINER.id
+      recipient = DEMO_MODE ? DEMO_TRAINER.id : _trainerId
+      if (!recipient) { showToast('Could not find trainer. Try again.', 'error'); return }
     }
   }
 
