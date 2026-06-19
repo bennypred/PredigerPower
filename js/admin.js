@@ -536,6 +536,13 @@ async function saveWorkout() {
   }
 
   try {
+    // Use the real Supabase auth UUID — guards against a stale demo session in localStorage
+    const { data: { user: authUser } } = await window._supabase.auth.getUser()
+    if (!authUser?.id) {
+      showToast('Session expired — please log out and log back in.', 'error')
+      return
+    }
+
     const { data: w, error } = await window._supabase
       .from('workouts')
       .insert({
@@ -545,7 +552,7 @@ async function saveWorkout() {
         athlete_id:     athlete  || null,
         group_id:       groupId  || null,
         notes:          notes    || null,
-        created_by:     _adminUser.id,
+        created_by:     authUser.id,
       })
       .select().single()
     if (error) throw error
