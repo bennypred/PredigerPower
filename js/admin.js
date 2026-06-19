@@ -16,6 +16,7 @@ let _activeMc     = null
 let _activeMcWeek = 1
 let _newMcWeeks   = 4
 let _expandedCell = null     // { week, day } — open exercise panel
+let _copyCell     = null     // { week, day } — open copy-to-weeks panel
 let _mcExCount    = 0
 
 const MC_DAY_KEYS  = ['mon','tue','wed','thu','fri']
@@ -361,19 +362,7 @@ function renderProgramForm(athletes) {
         ${buildExerciseRow(1)}
       </div>
 
-      <div style="margin-top:20px;background:#1c1c1f;border:1px solid #2a2a2f;border-radius:12px;padding:14px;margin-bottom:12px;">
-        <div style="font-size:12px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Copy to additional weeks</div>
-        <div style="display:flex;gap:20px;flex-wrap:wrap;">
-          ${[1,2,3,4].map(w => `
-            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;">
-              <input type="checkbox" id="copy_week_${w}" style="accent-color:#f97316;width:15px;height:15px;">
-              <span style="font-size:13px;color:#d4d4d8;">+${w} week${w > 1 ? 's' : ''}</span>
-            </label>
-          `).join('')}
-        </div>
-      </div>
-
-      <div style="display:flex;justify-content:flex-end;">
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;">
         <button onclick="saveWorkout()" class="btn-primary" style="padding:13px 36px;font-size:15px;">
           Save Workout
         </button>
@@ -548,21 +537,8 @@ async function saveWorkout() {
       athlete_id: athlete, group_id: groupId, notes, exercises: exData,
     })
 
-    const weeksToCopy = [1,2,3,4].filter(w => document.getElementById(`copy_week_${w}`)?.checked)
-    weeksToCopy.forEach(wk => {
-      saved.push({
-        id: 'dw_copy' + wk + '_' + Date.now(), title, description: desc,
-        scheduled_date: _addWeeks(date, wk),
-        athlete_id: athlete, group_id: groupId, notes,
-        exercises: exData.map((ex, i) => ({ ...ex, id: 'de_c' + wk + '_' + i + '_' + Date.now() })),
-      })
-    })
-
     lsSet('p3_demo_workouts', saved)
-    const msg = weeksToCopy.length
-      ? `"${title}" saved + copied to ${weeksToCopy.length} more week${weeksToCopy.length > 1 ? 's' : ''}!`
-      : `"${title}" saved for ${date}!`
-    showToast(msg, 'success')
+    showToast(`"${title}" saved for ${date}!`, 'success')
     refreshProgWeekNav()
     return
   }
@@ -603,38 +579,7 @@ async function saveWorkout() {
         track_as:      ex.track_as    || null,
       }))
     )
-    // Copy to additional weeks if requested
-    const weeksToCopy = [1,2,3,4].filter(w => document.getElementById(`copy_week_${w}`)?.checked)
-    for (const wk of weeksToCopy) {
-      const { data: wCopy, error: copyErr } = await window._supabase
-        .from('workouts')
-        .insert({
-          title, description: desc || null, scheduled_date: _addWeeks(date, wk),
-          athlete_id: athlete || null, group_id: groupId || null,
-          notes: notes || null, created_by: authUser.id,
-        })
-        .select().single()
-      if (copyErr) throw copyErr
-      await window._supabase.from('exercises').insert(
-        exercises.map(ex => ({
-          workout_id:    wCopy.id,
-          name:          ex.name,
-          'group':       ex.group        || null,
-          group_order:   ex.group_order  || null,
-          sets:          ex.sets         || null,
-          reps:          ex.reps         || null,
-          target_weight: ex.target_weight|| null,
-          notes:         ex.notes        || null,
-          order_index:   ex.order_index  || 0,
-          track_as:      ex.track_as     || null,
-        }))
-      )
-    }
-
-    const msg = weeksToCopy.length
-      ? `Workout saved + copied to ${weeksToCopy.length} more week${weeksToCopy.length > 1 ? 's' : ''}!`
-      : 'Workout programmed!'
-    showToast(msg, 'success')
+    showToast('Workout programmed!', 'success')
   } catch(e) { showToast(e.message || 'Error saving workout.', 'error') }
 }
 
@@ -2095,17 +2040,19 @@ function renderMesocycleDetail(mc) {
 function renderWeekGrid(mc, week) {
   const plan     = mc.week_plans?.[week] || {}
   const expanded = _expandedCell?.week === week ? _expandedCell.day : null
+  const copying  = _copyCell?.week === week     ? _copyCell.day     : null
 
   const grid = `
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
-      ${MC_DAY_KEYS.map((day, i) => renderDayCard(mc, week, day, i, plan[day] || {}, expanded === day)).join('')}
+      ${MC_DAY_KEYS.map((day, i) => renderDayCard(mc, week, day, i, plan[day] || {}, expanded === day, copying === day)).join('')}
     </div>`
 
-  const panel = expanded ? renderDayExercisePanel(mc, week, expanded) : ''
-  return grid + panel
+  const exPanel   = expanded ? renderDayExercisePanel(mc, week, expanded) : ''
+  const copyPanel = copying  ? renderDayCopyPanel(mc, week, copying)      : ''
+  return grid + exPanel + copyPanel
 }
 
-function renderDayCard(mc, week, day, i, cell, isExpanded) {
+function renderDayCard(mc, week, day, i, cell, isExpanded, isCopying) {
   const intOpt  = INTENSITY_OPTS.find(o => o.key === cell.intensity) || INTENSITY_OPTS[2]
   const exCount = (cell.exercises || []).length
   const borderColor = isExpanded ? '#f97316' : intOpt.color + '28'
@@ -2148,7 +2095,77 @@ function renderDayCard(mc, week, day, i, cell, isExpanded) {
           color:${isExpanded ? '#f97316' : '#a1a1aa'};">
         ✏ Exercises${exCount ? ` (${exCount})` : ''}
       </button>
+
+      <button onclick="toggleDayCopyPanel('${mc.id}',${week},'${day}')"
+        style="width:100%;padding:7px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s;
+          border:1px solid ${isCopying ? '#a78bfa' : 'rgba(167,139,250,0.2)'};
+          background:${isCopying ? 'rgba(167,139,250,0.12)' : 'rgba(167,139,250,0.05)'};
+          color:${isCopying ? '#a78bfa' : '#a1a1aa'};">
+        ⧉ Copy to weeks
+      </button>
     </div>`
+}
+
+function toggleDayCopyPanel(mcId, week, day) {
+  if (_copyCell?.week === week && _copyCell?.day === day) {
+    _copyCell = null
+  } else {
+    _copyCell     = { week, day }
+    _expandedCell = null  // close exercises panel if open
+  }
+  const mc = getMesocycles().find(m => m.id === mcId) || _activeMc
+  document.getElementById('meso-week-grid').innerHTML = renderWeekGrid(mc, week)
+}
+
+function renderDayCopyPanel(mc, week, day) {
+  const dayLabel  = MC_DAY_ABBR[MC_DAY_KEYS.indexOf(day)]
+  const otherWeeks = Array.from({ length: mc.weeks }, (_, i) => i + 1).filter(w => w !== week)
+  if (!otherWeeks.length) {
+    return `<div style="margin-top:10px;padding:14px;background:#111113;border:1px solid #27272a;border-radius:12px;font-size:13px;color:#71717a;text-align:center;">
+      This program only has one week — add more weeks to copy.
+    </div>`
+  }
+  return `
+    <div style="margin-top:10px;background:#111113;border:1px solid rgba(167,139,250,0.3);border-radius:12px;padding:18px;">
+      <div style="font-size:13px;font-weight:700;color:white;margin-bottom:4px;">Copy ${dayLabel} (Week ${week}) to:</div>
+      <div style="font-size:12px;color:#71717a;margin-bottom:14px;">Copies focus, intensity, notes, and exercises. Existing content in target weeks will be overwritten.</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+        ${otherWeeks.map(w => `
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;">
+            <input type="checkbox" id="copy_to_week_${w}" style="accent-color:#a78bfa;width:15px;height:15px;">
+            <span style="font-size:13px;color:#d4d4d8;font-weight:600;">Week ${w}</span>
+          </label>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="copyDayToWeeks('${mc.id}',${week},'${day}')" class="btn-primary" style="padding:9px 22px;font-size:13px;">Copy</button>
+        <button onclick="toggleDayCopyPanel('${mc.id}',${week},'${day}')"
+          style="padding:9px 18px;background:#1c1c1f;border:1px solid #27272a;color:#71717a;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>
+      </div>
+    </div>`
+}
+
+function copyDayToWeeks(mcId, fromWeek, day) {
+  const targetWeeks = Array.from({ length: _activeMc.weeks }, (_, i) => i + 1)
+    .filter(w => w !== fromWeek && document.getElementById(`copy_to_week_${w}`)?.checked)
+  if (!targetWeeks.length) { showToast('Select at least one week.', 'error'); return }
+
+  const list = getMesocycles()
+  const mc   = list.find(m => m.id === mcId)
+  if (!mc) return
+
+  const source = mc.week_plans?.[fromWeek]?.[day] || {}
+  targetWeeks.forEach(toWeek => {
+    if (!mc.week_plans)         mc.week_plans         = {}
+    if (!mc.week_plans[toWeek]) mc.week_plans[toWeek] = {}
+    mc.week_plans[toWeek][day] = JSON.parse(JSON.stringify(source))
+  })
+
+  saveMesocyclesList(list)
+  _activeMc = mc
+  _copyCell = null
+  document.getElementById('meso-week-grid').innerHTML = renderWeekGrid(mc, _activeMcWeek)
+  const dayLabel = MC_DAY_ABBR[MC_DAY_KEYS.indexOf(day)]
+  showToast(`${dayLabel} copied to Week${targetWeeks.length > 1 ? 's' : ''} ${targetWeeks.join(', ')}!`, 'success')
 }
 
 // ── Cell save helpers ─────────────────────────────────────────
