@@ -32,6 +32,13 @@ async function initPage(user) {
   _adminUser     = user
   const athletes = await getAthletes()
   _adminAthletes = athletes
+
+  // Hydrate groups from Supabase into the localStorage cache
+  if (!DEMO_MODE && window._supabase) {
+    const { data: grps } = await window._supabase.from('athlete_groups').select('*').order('created_at')
+    if (grps) lsSet('p3_athlete_groups', grps)
+  }
+
   const metrics  = DEMO_MODE ? DEMO_METRICS : await fetchMetrics()
   renderAdmin(user, athletes, metrics)
 
@@ -825,7 +832,14 @@ function saveLBConfig() {
 // ── Groups ────────────────────────────────────────────────────
 
 function getGroups()              { return lsGet('p3_athlete_groups') || [] }
-function saveGroupsList(list)     { lsSet('p3_athlete_groups', list) }
+function saveGroupsList(list) {
+  lsSet('p3_athlete_groups', list)
+  if (!DEMO_MODE && window._supabase && list.length) {
+    window._supabase.from('athlete_groups')
+      .upsert(list, { onConflict: 'id' })
+      .then(({ error }) => { if (error) console.error('Groups sync:', error) })
+  }
+}
 
 // ── Group Stats ───────────────────────────────────────────────
 
@@ -1518,6 +1532,10 @@ function deleteGroup(groupId) {
   const g = getGroups().find(x => x.id === groupId)
   if (!confirm(`Delete group "${g?.name}"? Workouts assigned to this group will revert to "All Athletes".`)) return
   saveGroupsList(getGroups().filter(x => x.id !== groupId))
+  if (!DEMO_MODE && window._supabase) {
+    window._supabase.from('athlete_groups').delete().eq('id', groupId)
+      .then(({ error }) => { if (error) console.error('Group delete sync:', error) })
+  }
   if (_openGroupStatsId === groupId) _openGroupStatsId = null
   document.getElementById('panel_athletes').innerHTML = renderAthletes(_adminAthletes)
   document.getElementById('panel_program').innerHTML  = renderProgramForm(_adminAthletes)
@@ -1908,11 +1926,25 @@ function autoSetTrackAs(num) {
 // ── Program Overview ──────────────────────────────────────────
 
 function getMesocycles() { return lsGet('p3_mesocycles') || [] }
-function saveMesocyclesList(list) { lsSet('p3_mesocycles', list) }
+function saveMesocyclesList(list) {
+  lsSet('p3_mesocycles', list)
+  if (!DEMO_MODE && window._supabase && list.length) {
+    window._supabase.from('mesocycles')
+      .upsert(list.map(mc => ({ id: mc.id, name: mc.name, weeks: mc.weeks,
+        start_date: mc.start_date || null, notes: mc.notes || null,
+        week_plans: mc.week_plans || {}, created_at: mc.created_at || new Date().toISOString() })),
+        { onConflict: 'id' })
+      .then(({ error }) => { if (error) console.error('Mesocycle sync:', error) })
+  }
+}
 
-function renderProgramsPanel() {
+async function renderProgramsPanel() {
   const panel = document.getElementById('panel_programs')
   if (!panel) return
+  if (!DEMO_MODE && window._supabase && _programView !== 'detail') {
+    const { data } = await window._supabase.from('mesocycles').select('*').order('created_at')
+    if (data) lsSet('p3_mesocycles', data)
+  }
   panel.innerHTML = (_programView === 'detail' && _activeMc)
     ? renderMesocycleDetail(_activeMc)
     : renderMesocycleList(getMesocycles())
@@ -2222,6 +2254,10 @@ function backToPrograms() {
 function deleteMesocycle(id) {
   if (!confirm('Delete this program? This cannot be undone.')) return
   saveMesocyclesList(getMesocycles().filter(m => m.id !== id))
+  if (!DEMO_MODE && window._supabase) {
+    window._supabase.from('mesocycles').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.error('Mesocycle delete sync:', error) })
+  }
   if (_activeMc?.id === id) backToPrograms()
   else renderProgramsPanel()
   showToast('Program deleted.', 'success')
