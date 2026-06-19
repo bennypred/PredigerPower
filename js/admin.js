@@ -361,13 +361,31 @@ function renderProgramForm(athletes) {
         ${buildExerciseRow(1)}
       </div>
 
-      <div style="margin-top:20px;display:flex;justify-content:flex-end;">
+      <div style="margin-top:20px;background:#1c1c1f;border:1px solid #2a2a2f;border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Copy to additional weeks</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+          ${[1,2,3,4].map(w => `
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;">
+              <input type="checkbox" id="copy_week_${w}" style="accent-color:#f97316;width:15px;height:15px;">
+              <span style="font-size:13px;color:#d4d4d8;">+${w} week${w > 1 ? 's' : ''}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;">
         <button onclick="saveWorkout()" class="btn-primary" style="padding:13px 36px;font-size:15px;">
           Save Workout
         </button>
       </div>
     </div>
   `
+}
+
+function _addWeeks(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + n * 7)
+  return d.toISOString().split('T')[0]
 }
 
 function buildExerciseRow(num) {
@@ -529,8 +547,22 @@ async function saveWorkout() {
       id: 'dw_' + Date.now(), title, description: desc, scheduled_date: date,
       athlete_id: athlete, group_id: groupId, notes, exercises: exData,
     })
+
+    const weeksToCopy = [1,2,3,4].filter(w => document.getElementById(`copy_week_${w}`)?.checked)
+    weeksToCopy.forEach(wk => {
+      saved.push({
+        id: 'dw_copy' + wk + '_' + Date.now(), title, description: desc,
+        scheduled_date: _addWeeks(date, wk),
+        athlete_id: athlete, group_id: groupId, notes,
+        exercises: exData.map((ex, i) => ({ ...ex, id: 'de_c' + wk + '_' + i + '_' + Date.now() })),
+      })
+    })
+
     lsSet('p3_demo_workouts', saved)
-    showToast(`"${title}" saved for ${date}!`, 'success')
+    const msg = weeksToCopy.length
+      ? `"${title}" saved + copied to ${weeksToCopy.length} more week${weeksToCopy.length > 1 ? 's' : ''}!`
+      : `"${title}" saved for ${date}!`
+    showToast(msg, 'success')
     refreshProgWeekNav()
     return
   }
@@ -571,7 +603,38 @@ async function saveWorkout() {
         track_as:      ex.track_as    || null,
       }))
     )
-    showToast('Workout programmed!', 'success')
+    // Copy to additional weeks if requested
+    const weeksToCopy = [1,2,3,4].filter(w => document.getElementById(`copy_week_${w}`)?.checked)
+    for (const wk of weeksToCopy) {
+      const { data: wCopy, error: copyErr } = await window._supabase
+        .from('workouts')
+        .insert({
+          title, description: desc || null, scheduled_date: _addWeeks(date, wk),
+          athlete_id: athlete || null, group_id: groupId || null,
+          notes: notes || null, created_by: authUser.id,
+        })
+        .select().single()
+      if (copyErr) throw copyErr
+      await window._supabase.from('exercises').insert(
+        exercises.map(ex => ({
+          workout_id:    wCopy.id,
+          name:          ex.name,
+          'group':       ex.group        || null,
+          group_order:   ex.group_order  || null,
+          sets:          ex.sets         || null,
+          reps:          ex.reps         || null,
+          target_weight: ex.target_weight|| null,
+          notes:         ex.notes        || null,
+          order_index:   ex.order_index  || 0,
+          track_as:      ex.track_as     || null,
+        }))
+      )
+    }
+
+    const msg = weeksToCopy.length
+      ? `Workout saved + copied to ${weeksToCopy.length} more week${weeksToCopy.length > 1 ? 's' : ''}!`
+      : 'Workout programmed!'
+    showToast(msg, 'success')
   } catch(e) { showToast(e.message || 'Error saving workout.', 'error') }
 }
 
