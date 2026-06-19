@@ -165,6 +165,47 @@ create policy "delete own or trainer" on messages for delete
   using (author_id = auth.uid() or current_role_p3() = 'trainer');
 
 -- ════════════════════════════════════════════════════════════
+-- Workouts by athlete code (for kiosk / code-login athletes)
+-- ════════════════════════════════════════════════════════════
+-- Allows fetching workouts without a Supabase auth session.
+-- Caller must know the athlete code, which is the same
+-- credential required for code login — no extra exposure.
+create or replace function get_athlete_workouts_by_code(
+  p_code  text,
+  p_start date,
+  p_end   date
+)
+returns table (
+  id             uuid,
+  title          text,
+  description    text,
+  scheduled_date date,
+  athlete_id     uuid,
+  group_id       text,
+  notes          text,
+  created_at     timestamptz,
+  exercises      jsonb
+)
+language sql security definer stable as $$
+  with athlete as (
+    select id from profiles where athlete_code = upper(trim(p_code)) limit 1
+  )
+  select
+    w.id, w.title, w.description, w.scheduled_date,
+    w.athlete_id, w.group_id, w.notes, w.created_at,
+    coalesce(
+      (select jsonb_agg(to_jsonb(e) order by e.order_index)
+       from exercises e where e.workout_id = w.id),
+      '[]'::jsonb
+    ) as exercises
+  from workouts w
+  cross join athlete a
+  where w.scheduled_date between p_start and p_end
+    and (w.athlete_id = a.id or w.athlete_id is null)
+  order by w.scheduled_date;
+$$;
+
+-- ════════════════════════════════════════════════════════════
 -- Auto-create profile on signup
 -- ════════════════════════════════════════════════════════════
 create or replace function handle_new_user()

@@ -67,7 +67,23 @@ async function getWeekWorkouts(user) {
       return true
     })
   }
-  // Trainers fetch all workouts; athletes fetch only their own + all-athlete workouts
+
+  // For athletes: check if we have a real Supabase auth session.
+  // Code-login on a device other than signup won't have one, so fall back to RPC.
+  if (!isTrainer(user)) {
+    const { data: sessionData } = await window._supabase.auth.getSession()
+    if (!sessionData?.session) {
+      // No auth session (athlete code kiosk login) — use RPC to bypass RLS
+      const { data } = await window._supabase.rpc('get_athlete_workouts_by_code', {
+        p_code:  user.athlete_code,
+        p_start: _currentWeekDates[0],
+        p_end:   _currentWeekDates[4],
+      })
+      return (data || []).map(w => ({ ...w, exercises: w.exercises || [] }))
+    }
+  }
+
+  // Trainers fetch all workouts; authenticated athletes fetch their own + all-athlete workouts
   let q = window._supabase
     .from('workouts')
     .select('*, exercises(*)')
