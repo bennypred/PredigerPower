@@ -21,17 +21,17 @@ const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri']
 // Fetches saved logs/metrics for a date from Supabase and writes them to
 // localStorage so renderDayContent can read them synchronously.
 // `force` = true skips the "already cached" check (used when navigating to past days).
-async function prefetchSavedLogs(userId, date, force = false) {
+async function prefetchSavedLogs(userId, date) {
   if (DEMO_MODE || !window._supabase) return
-  // For today, skip if already cached — auto-save keeps localStorage fresh.
-  // For past dates, always refresh so edits from other devices show up.
+  // Always fetch from Supabase for past dates so edits on any device show up.
+  // For today, skip if already cached — auto-save keeps localStorage current.
   const isPastDate = date < TODAY
-  if (!force && !isPastDate && (lsGet(`p3_logs_${userId}_${date}`) || lsGet(`p3_metrics_${userId}_${date}`))) return
+  if (!isPastDate && (lsGet(`p3_logs_${userId}_${date}`) || lsGet(`p3_metrics_${userId}_${date}`))) return
 
   const [{ data: logData }, { data: metricData }] = await Promise.all([
     window._supabase
       .from('workout_logs')
-      .select('exercise_id, actual_sets, actual_reps, actual_weight, notes')
+      .select('exercise_id, actual_sets, actual_reps, actual_weight, notes, sets_data')
       .eq('athlete_id', userId)
       .eq('logged_date', date),
     window._supabase
@@ -44,19 +44,24 @@ async function prefetchSavedLogs(userId, date, force = false) {
   if (logData?.length) {
     const logs = {}
     logData.forEach(r => {
-      const n = r.actual_sets || 1
-      logs[r.exercise_id] = {
-        sets: Array.from({ length: n }, (_, i) => ({
-          set:    i + 1,
-          weight: r.actual_weight != null ? String(r.actual_weight) : '',
-          reps:   r.actual_reps   != null ? String(r.actual_reps)   : '',
-        })),
-        notes: r.notes || '',
+      if (Array.isArray(r.sets_data) && r.sets_data.length) {
+        // Full per-set data saved by the new code path — use it directly
+        logs[r.exercise_id] = { sets: r.sets_data, notes: r.notes || '' }
+      } else {
+        // Legacy rows (saved before sets_data column existed) — reconstruct from summary
+        const n = r.actual_sets || 1
+        logs[r.exercise_id] = {
+          sets: Array.from({ length: n }, (_, i) => ({
+            set:    i + 1,
+            weight: r.actual_weight != null ? String(r.actual_weight) : '',
+            reps:   r.actual_reps   != null ? String(r.actual_reps)   : '',
+          })),
+          notes: r.notes || '',
+        }
       }
     })
     lsSet(`p3_logs_${userId}_${date}`, logs)
   } else if (isPastDate) {
-    // Clear stale localStorage if Supabase has nothing for this date
     localStorage.removeItem(`p3_logs_${userId}_${date}`)
   }
 
