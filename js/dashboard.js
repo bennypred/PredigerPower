@@ -62,9 +62,9 @@ async function changeWeek(delta) {
   _weekOffset        += delta
   _currentWeekDates   = getWeekDatesForOffset(_weekOffset)
   _viewingTarget      = null
-  // Land on today if returning to current week, otherwise Monday
   _selectedDate = _weekOffset === 0 ? TODAY : _currentWeekDates[0]
   _weekWorkouts = await getWeekWorkouts(_dashUser)
+  if (!isTrainer(_dashUser)) await prefetchSavedLogs(_dashUser.id, _selectedDate)
   renderDashboard(_dashUser, _weekWorkouts)
 }
 
@@ -86,6 +86,7 @@ async function initPage(user) {
   }
 
   _weekWorkouts = await getWeekWorkouts(user)
+  if (!isTrainer(user)) await prefetchSavedLogs(user.id, TODAY)
   renderDashboard(user, _weekWorkouts)
   setupDashAutoSave()
 }
