@@ -23,6 +23,7 @@ function initSidebar(currentUser) {
     { href: 'leaderboard.html', label: 'Leaderboard',      icon: trophyIcon(),    match: 'leaderboard' },
     { href: 'profile.html',     label: 'My Profile',       icon: profileIcon(),   match: 'profile'   },
     { href: 'food-log.html',    label: 'Food Log',         icon: foodIcon(),      match: 'food-log'  },
+    { href: 'sleep-log.html',   label: 'Sleep Log',        icon: sleepIcon(),     match: 'sleep-log' },
   ]
 
   let navHTML = navItems.map(item => {
