@@ -339,6 +339,25 @@ create policy "athletes manage own food logs" on food_logs for all
   using  (athlete_id = auth.uid() or current_role_p3() = 'trainer')
   with check (athlete_id = auth.uid() or current_role_p3() = 'trainer');
 
+-- 5. Sleep Logs table
+create table if not exists sleep_logs (
+  id           uuid default uuid_generate_v4() primary key,
+  athlete_id   uuid references profiles(id) on delete cascade not null,
+  log_date     date not null,
+  sleep_time   time,
+  wake_time    time,
+  energy_level integer check (energy_level between 1 and 10),
+  notes        text,
+  created_at   timestamptz default now(),
+  updated_at   timestamptz default now(),
+  unique (athlete_id, log_date)
+);
+alter table sleep_logs enable row level security;
+
+create policy "athletes manage own sleep logs" on sleep_logs for all
+  using  (athlete_id = auth.uid() or current_role_p3() = 'trainer')
+  with check (athlete_id = auth.uid() or current_role_p3() = 'trainer');
+
 -- ════════════════════════════════════════════════════════════
 -- Setup checklist
 -- ════════════════════════════════════════════════════════════

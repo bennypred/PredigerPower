@@ -616,7 +616,7 @@ async function openDayLog(dateStr) {
   }
 }
 
-function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}) {
+function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}, sleepEntry = {}) {
   const content = document.getElementById('day-log-content')
   if (!content) return
 
@@ -748,6 +748,66 @@ function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}) {
         ? `<div style="display:flex;flex-direction:column;gap:8px;">${foodRows.join('')}</div>`
         : `<div style="color:#3f3f46;font-size:13px;">Nothing logged for this day.</div>`
       }
+    </div>`
+
+  // Sleep log section
+  const hasSleep = sleepEntry.sleep_time || sleepEntry.wake_time || sleepEntry.energy_level || sleepEntry.notes
+  const fmtTime = t => {
+    if (!t) return '—'
+    const [h, m] = t.split(':')
+    const hr = parseInt(h)
+    const ampm = hr >= 12 ? 'PM' : 'AM'
+    return `${hr % 12 || 12}:${m} ${ampm}`
+  }
+  const energyColor = e => e <= 3 ? '#ef4444' : e <= 6 ? '#eab308' : '#22c55e'
+
+  let sleepHTML = ''
+  if (hasSleep) {
+    let durationHTML = ''
+    if (sleepEntry.sleep_time && sleepEntry.wake_time) {
+      const [sh, sm] = sleepEntry.sleep_time.split(':').map(Number)
+      const [wh, wm] = sleepEntry.wake_time.split(':').map(Number)
+      let mins = (wh * 60 + wm) - (sh * 60 + sm)
+      if (mins < 0) mins += 24 * 60
+      durationHTML = `<div style="font-size:11px;color:#71717a;margin-top:4px;">${Math.floor(mins/60)}h ${mins%60}m total</div>`
+    }
+
+    sleepHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;">
+          <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:4px;">🌙 SLEEP TIME</div>
+          <div style="font-size:18px;font-weight:800;color:${sleepEntry.sleep_time ? '#a855f7' : '#3f3f46'};">${fmtTime(sleepEntry.sleep_time)}</div>
+          ${durationHTML}
+        </div>
+        <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;">
+          <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:4px;">☀️ WAKE TIME</div>
+          <div style="font-size:18px;font-weight:800;color:${sleepEntry.wake_time ? '#f97316' : '#3f3f46'};">${fmtTime(sleepEntry.wake_time)}</div>
+        </div>
+      </div>
+      ${sleepEntry.energy_level ? `
+      <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:8px;">⚡ ENERGY LEVEL ON WAKE</div>
+        <div style="display:flex;gap:4px;">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n => {
+            const c = energyColor(n)
+            const active = n === sleepEntry.energy_level
+            return `<div style="flex:1;padding:6px 2px;border-radius:6px;font-size:12px;font-weight:800;text-align:center;
+              background:${active ? c + '22' : '#18181b'};border:2px solid ${active ? c : '#27272a'};
+              color:${active ? c : '#3f3f46'};">${n}</div>`
+          }).join('')}
+        </div>
+      </div>` : ''}
+      ${sleepEntry.notes ? `
+      <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;">
+        <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:4px;">📝 NOTES</div>
+        <div style="font-size:13px;color:white;line-height:1.5;white-space:pre-wrap;">${escapeHtml(sleepEntry.notes)}</div>
+      </div>` : ''}`
+  }
+
+  html += `
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #27272a;">
+      <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Sleep Log</div>
+      ${hasSleep ? sleepHTML : `<div style="color:#3f3f46;font-size:13px;">Nothing logged for this day.</div>`}
     </div>`
 
   content.innerHTML = html
