@@ -20,6 +20,7 @@ let _hiddenMetricKeys = new Set()  // metric keys deleted from this athlete's Pe
 let _liftManageOpen   = false      // manage panel state for Lift section
 let _metricManageOpen = false      // manage panel state for Metrics section
 let _cachedAttendance = []         // cached once on load; used by month-nav
+let _openDayLogDate   = null       // date string of the currently-open day-log panel
 
 function getProfileConfig(athleteId, athlete) {
   const saved = lsGet(`p3_profile_config_${athleteId}`)
