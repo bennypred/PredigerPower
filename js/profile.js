@@ -712,8 +712,35 @@ function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}) {
   }
 
   if (!logs.length && !metrics.length) {
-    html += `<div style="text-align:center;color:#52525b;font-size:13px;padding:16px 0;">No data recorded for this day.</div>`
+    html += `<div style="text-align:center;color:#52525b;font-size:13px;padding:8px 0 16px;">No workout data recorded for this day.</div>`
   }
+
+  // Food log section (always shown so trainer can see what athlete ate)
+  const _profileMeals = [
+    { id: 'breakfast', label: 'Breakfast', icon: '🍳' },
+    { id: 'lunch',     label: 'Lunch',     icon: '🥗' },
+    { id: 'dinner',    label: 'Dinner',    icon: '🍽️' },
+    { id: 'snacks',    label: 'Snacks',    icon: '🍎' },
+  ]
+  const foodRows = _profileMeals.map(m => {
+    const text = foodEntry[m.id]
+    if (!text || !text.trim()) return ''
+    return `
+      <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;">
+        <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:4px;">${m.icon} ${m.label.toUpperCase()}</div>
+        <div style="font-size:13px;color:white;line-height:1.5;white-space:pre-wrap;">${escapeHtml(text)}</div>
+      </div>`
+  }).filter(Boolean)
+
+  const hasFoodEntry = foodRows.length > 0
+  html += `
+    <div style="margin-top:20px;padding-top:20px;border-top:1px solid #27272a;">
+      <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Food Log</div>
+      ${hasFoodEntry
+        ? `<div style="display:flex;flex-direction:column;gap:8px;">${foodRows.join('')}</div>`
+        : `<div style="color:#3f3f46;font-size:13px;">Nothing logged for this day.</div>`
+      }
+    </div>`
 
   content.innerHTML = html
 }
