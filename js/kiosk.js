@@ -717,7 +717,7 @@ function renderCodeEntry() {
 
 // ── Save ──────────────────────────────────────────────────────
 
-async function saveKioskLog(userId) {
+async function saveKioskLog(userId, silent = false) {
   const slotKey = _slots.A?.user.id === userId ? 'A' : 'B'
   const slot = _slots[slotKey]
   if (!slot) return
