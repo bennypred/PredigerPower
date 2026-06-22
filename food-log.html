@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P3 — Food Log</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .meal-card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-bottom: 12px;
+    }
+    .meal-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .meal-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+    .meal-textarea {
+      width: 100%;
+      min-height: 80px;
+      background: #111113;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      color: white;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 10px 14px;
+      resize: vertical;
+      font-family: inherit;
+      box-sizing: border-box;
+      transition: border-color 0.15s;
+    }
+    .meal-textarea:focus {
+      outline: none;
+      border-color: #f97316;
+    }
+    .meal-textarea::placeholder { color: #3f3f46; }
+    .meal-readonly {
+      background: #111113;
+      border: 1px solid #1c1c1f;
+      border-radius: 10px;
+      padding: 10px 14px;
+      min-height: 48px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div style="display:flex;min-height:100vh;">
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+      <div id="mobile-header-slot"></div>
+      <div class="p3-content" style="padding:28px 24px 56px;max-width:860px;margin:0 auto;">
+        <div id="page-content">
+          <div style="display:flex;align-items:center;justify-content:center;height:200px;">
+            <div style="width:36px;height:36px;border:3px solid #27272a;border-top-color:#f97316;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/food-log.js"></script>
+  <script>
+    const _user = requireAuth()
+    if (_user) {
+      initSupabase()
+      initSidebar(_user)
+      document.getElementById('mobile-header-slot').innerHTML = mobileHeader('Food Log')
+      initFoodLog(_user)
+    }
+  </script>
+</body>
+</html>
