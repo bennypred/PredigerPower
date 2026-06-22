@@ -17,6 +17,34 @@ let _kioskSaveTimer  = null
 
 function initKiosk() {
   renderKiosk()
+  setupKioskAutoSave()
+}
+
+function kioskSetStatus(state) {
+  const el = document.getElementById('kiosk-save-status')
+  if (!el) return
+  if (state === 'typing') { el.textContent = 'Unsaved…'; el.style.color = '#71717a' }
+  if (state === 'saving') { el.textContent = 'Saving…';  el.style.color = '#a1a1aa' }
+  if (state === 'saved')  { el.textContent = '✓ Auto-saved'; el.style.color = '#22c55e' }
+  if (state === 'error')  { el.textContent = 'Error — tap Save'; el.style.color = '#ef4444' }
+}
+
+function kioskOnInput() {
+  kioskSetStatus('typing')
+  clearTimeout(_kioskSaveTimer)
+  const userId = _slots[_active]?.user?.id
+  if (!userId) return
+  _kioskSaveTimer = setTimeout(() => saveKioskLog(userId, true), 1500)
+}
+
+function setupKioskAutoSave() {
+  if (document._kioskAutoSaveReady) return
+  document._kioskAutoSaveReady = true
+  document.addEventListener('input', e => {
+    const area = document.getElementById('kiosk-main')
+    if (!area || !area.contains(e.target)) return
+    kioskOnInput()
+  })
 }
 
 // ── In-page overlay for profile / leaderboard ─────────────────
