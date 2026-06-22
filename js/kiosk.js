@@ -11,6 +11,7 @@ let _codeBuf         = ''     // raw keystrokes (without the P3 prefix)
 let _menuOpen        = false  // athlete nav dropdown
 let _kioskWeekOffset = 0      // shared week offset for the day-tab navigator
 let _kioskWeekDates  = [...WEEK_DATES]
+let _kioskSaveTimer  = null
 
 // ── Init ──────────────────────────────────────────────────────
 
