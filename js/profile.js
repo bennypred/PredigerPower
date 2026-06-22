@@ -447,11 +447,19 @@ function renderAttCell(day) {
       bg = 'rgba(239,68,68,0.1)'; border = 'rgba(239,68,68,0.5)'; numColor = '#ef4444'; break
     case 'future':
       bg = '#111113'; border = '#27272a'; numColor = '#3f3f46'; break
-    default: // today (not yet logged)
+    default:
       bg = 'rgba(249,115,22,0.1)'; border = 'rgba(249,115,22,0.5)'; numColor = '#f97316'; break
   }
-  return `<div style="height:44px;border-radius:6px;background:${bg};border:1px solid ${border};display:flex;align-items:center;justify-content:center;">
-    <span style="font-size:13px;font-weight:700;color:${numColor};">${day.dayNum}</span>
+
+  const canView = isTrainer(_profileUser) && day.status === 'present'
+  const isOpen  = _openDayLogDate === day.dateStr
+
+  return `<div
+    ${canView ? `onclick="openDayLog('${day.dateStr}')"` : ''}
+    style="height:44px;border-radius:6px;background:${isOpen ? 'rgba(34,197,94,0.3)' : bg};border:1px solid ${isOpen ? '#22c55e' : border};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;${canView ? 'cursor:pointer;transition:opacity 0.12s;' : ''}"
+    ${canView ? `onmouseover="this.style.opacity='0.75'" onmouseout="this.style.opacity='1'"` : ''}>
+    <span style="font-size:13px;font-weight:700;color:${numColor};line-height:1;">${day.dayNum}</span>
+    ${canView ? `<span style="font-size:8px;font-weight:700;color:#22c55e;opacity:0.8;letter-spacing:0.04em;">VIEW</span>` : ''}
   </div>`
 }
 
