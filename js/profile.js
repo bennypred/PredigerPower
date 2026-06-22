@@ -419,7 +419,7 @@ function renderAttendanceSection(attendance) {
       <!-- Legend -->
       <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;">
         ${[
-          ['rgba(34,197,94,0.18)','#22c55e','Present'],
+          ['rgba(34,197,94,0.18)','#22c55e', isTrainer(_profileUser) ? 'Present — click to view log' : 'Present'],
           ['rgba(239,68,68,0.12)','rgba(239,68,68,0.6)','Absent'],
           ['rgba(249,115,22,0.12)','rgba(249,115,22,0.5)','Today'],
           ['#111113','#27272a','Upcoming'],
@@ -428,6 +428,11 @@ function renderAttendanceSection(attendance) {
             <div style="width:12px;height:12px;border-radius:3px;background:${bg};border:1px solid ${border};"></div>${label}
           </div>`
         ).join('')}
+      </div>
+
+      <!-- Day log panel (trainer only) -->
+      <div id="day-log-panel" style="display:none;margin-top:20px;border-top:1px solid #27272a;padding-top:20px;">
+        <div id="day-log-content"></div>
       </div>
     </div>
   `
