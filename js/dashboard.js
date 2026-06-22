@@ -713,7 +713,33 @@ function renderRestDay() {
 
 // ── Save log ──────────────────────────────────────────────────
 
-async function saveLog(workoutId, date = TODAY) {
+function dashSetStatus(state) {
+  const el = document.getElementById('dash-save-status')
+  if (!el) return
+  if (state === 'typing') { el.textContent = 'Unsaved…'; el.style.color = '#52525b' }
+  if (state === 'saving') { el.textContent = 'Saving…';  el.style.color = '#71717a' }
+  if (state === 'saved')  { el.textContent = '✓ Saved';  el.style.color = '#22c55e' }
+  if (state === 'error')  { el.textContent = 'Error — try again'; el.style.color = '#ef4444' }
+}
+
+function dashOnInput() {
+  dashSetStatus('typing')
+  clearTimeout(_dashSaveTimer)
+  _dashSaveTimer = setTimeout(() => saveLog(_dashSaveWorkoutId, _dashSaveDate, true), 1500)
+}
+
+function setupDashAutoSave() {
+  if (document._dashAutoSaveReady) return
+  document._dashAutoSaveReady = true
+  document.addEventListener('input', e => {
+    const area = document.getElementById('day-content')
+    if (!area || !area.contains(e.target)) return
+    if (isTrainer(_dashUser)) return  // trainers don't auto-save athlete logs
+    dashOnInput()
+  })
+}
+
+async function saveLog(workoutId, date = TODAY, silent = false) {
   const user = getSession()
 
   const metrics = {}
