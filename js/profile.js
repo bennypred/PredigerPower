@@ -519,6 +519,196 @@ function attNextMonth() {
     renderAttendanceSection(_cachedAttendance)
 }
 
+// ── Day log viewer (trainer clicks a present day on the calendar) ─
+
+async function openDayLog(dateStr) {
+  const panel   = document.getElementById('day-log-panel')
+  const content = document.getElementById('day-log-content')
+  if (!panel || !content) return
+
+  // Toggle off if same day clicked again
+  if (_openDayLogDate === dateStr) {
+    _openDayLogDate = null
+    panel.style.display = 'none'
+    document.getElementById('attendance-section').innerHTML = renderAttendanceSection(_cachedAttendance)
+    return
+  }
+
+  _openDayLogDate = dateStr
+  // Re-render calendar so the clicked cell shows as active
+  document.getElementById('attendance-section').innerHTML = renderAttendanceSection(_cachedAttendance)
+  const panel2   = document.getElementById('day-log-panel')
+  const content2 = document.getElementById('day-log-content')
+  panel2.style.display = 'block'
+  content2.innerHTML = `<div style="text-align:center;padding:24px;color:#71717a;font-size:13px;">Loading…</div>`
+  panel2.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+
+  const dateLabel = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+  })
+
+  if (DEMO_MODE) {
+    const savedLogs    = lsGet(`p3_logs_${_athleteId}_${dateStr}`)    || {}
+    const savedMetrics = lsGet(`p3_metrics_${_athleteId}_${dateStr}`) || {}
+
+    // Find the scheduled workout to get exercise info
+    const groups   = lsGet('p3_athlete_groups') || []
+    const groupIds = groups.filter(g => g.athlete_ids.includes(_athleteId)).map(g => g.id)
+    const allWkts  = [...DEMO_WORKOUTS, ...(lsGet('p3_demo_workouts') || [])]
+    const workout  = allWkts.find(w =>
+      w.scheduled_date === dateStr &&
+      (w.athlete_id === _athleteId ||
+       (w.group_id && groupIds.includes(w.group_id)) ||
+       (!w.athlete_id && !w.group_id))
+    )
+    const exercises = workout
+      ? [...(workout.exercises || [])].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+      : []
+
+    const logs = exercises.map(ex => {
+      const log  = savedLogs[ex.id]
+      if (!log) return null
+      const sets = (log.sets || []).filter(s => s.weight || s.reps)
+      if (!sets.length) return null
+      return { exercise: ex, sets, notes: log.notes || '' }
+    }).filter(Boolean)
+
+    const metrics = Object.entries(savedMetrics)
+      .filter(([, d]) => d?.value != null)
+      .map(([key, d]) => ({ metric_type: key, value: d.value, unit: d.unit }))
+
+    renderDayLogContent(dateLabel, logs, metrics, 'demo')
+  } else {
+    const [logsRes, metricsRes] = await Promise.all([
+      window._supabase
+        .from('workout_logs')
+        .select('actual_sets, actual_reps, actual_weight, notes, exercise:exercises!exercise_id(name, sets, reps, target_weight, notes, order_index)')
+        .eq('athlete_id', _athleteId)
+        .eq('logged_date', dateStr),
+      window._supabase
+        .from('performance_metrics')
+        .select('metric_type, value, unit')
+        .eq('athlete_id', _athleteId)
+        .eq('recorded_date', dateStr),
+    ])
+
+    const logs    = (logsRes.data || []).sort((a, b) => (a.exercise?.order_index || 0) - (b.exercise?.order_index || 0))
+    const metrics = metricsRes.data || []
+
+    renderDayLogContent(dateLabel, logs, metrics, 'live')
+  }
+}
+
+function renderDayLogContent(dateLabel, logs, metrics, mode) {
+  const content = document.getElementById('day-log-content')
+  if (!content) return
+
+  let html = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;color:white;">${dateLabel}</div>
+      <button
+        onclick="_openDayLogDate=null;document.getElementById('day-log-panel').style.display='none';document.getElementById('attendance-section').innerHTML=renderAttendanceSection(_cachedAttendance);"
+        style="background:none;border:none;color:#52525b;font-size:20px;cursor:pointer;padding:2px 8px;line-height:1;transition:color 0.15s;"
+        onmouseover="this.style.color='white'" onmouseout="this.style.color='#52525b'">✕</button>
+    </div>`
+
+  // Metrics row
+  if (metrics.length) {
+    html += `
+      <div style="margin-bottom:18px;">
+        <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Metrics Logged</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${metrics.map(m => {
+            const meta  = METRIC_META[m.metric_type]
+            const label = meta?.label || m.metric_type
+            const color = meta?.color || '#a855f7'
+            return `
+              <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:8px 14px;min-width:80px;">
+                <div style="font-size:10px;color:#52525b;font-weight:600;margin-bottom:3px;">${label}</div>
+                <div style="font-size:18px;font-weight:800;color:${color};">${m.value}<span style="font-size:11px;color:#52525b;font-weight:400;"> ${m.unit || ''}</span></div>
+              </div>`
+          }).join('')}
+        </div>
+      </div>`
+  }
+
+  // Exercise logs
+  if (logs.length) {
+    html += `
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Exercises Logged</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${logs.map((log, i) => {
+            const ex = mode === 'demo' ? log.exercise : (log.exercise || {})
+            const targetStr = [
+              ex.sets          ? `${ex.sets} sets`           : null,
+              ex.reps          ? `× ${ex.reps} reps`         : null,
+              ex.target_weight ? `@ ${ex.target_weight} lbs` : null,
+            ].filter(Boolean).join(' ') || '—'
+
+            const exNotes = ex.notes ? `<div style="font-size:11px;color:#f97316;margin-top:2px;">${escapeHtml(ex.notes)}</div>` : ''
+
+            if (mode === 'demo') {
+              return `
+                <div style="background:#111113;border:1px solid #27272a;border-radius:10px;padding:14px 16px;">
+                  <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+                    <div style="width:24px;height:24px;border-radius:6px;background:#f97316;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:white;flex-shrink:0;margin-top:1px;">${i + 1}</div>
+                    <div>
+                      <div style="font-size:14px;font-weight:700;color:white;">${escapeHtml(ex.name)}</div>
+                      <div style="font-size:11px;color:#71717a;">Target: ${targetStr}</div>
+                      ${exNotes}
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:36px 1fr 1fr;gap:4px;padding:0 2px;margin-bottom:6px;">
+                    <div style="font-size:10px;font-weight:700;color:#3f3f46;text-align:center;">SET</div>
+                    <div style="font-size:10px;font-weight:700;color:#3f3f46;text-align:center;">WEIGHT</div>
+                    <div style="font-size:10px;font-weight:700;color:#3f3f46;text-align:center;">REPS</div>
+                  </div>
+                  ${log.sets.map(s => `
+                    <div style="display:grid;grid-template-columns:36px 1fr 1fr;gap:4px;margin-bottom:4px;">
+                      <div style="text-align:center;font-size:13px;font-weight:700;color:#71717a;">${s.set}</div>
+                      <div style="text-align:center;font-size:14px;font-weight:700;color:${s.weight ? 'white' : '#3f3f46'};">${s.weight ? s.weight + ' lbs' : '—'}</div>
+                      <div style="text-align:center;font-size:14px;font-weight:700;color:${s.reps ? 'white' : '#3f3f46'};">${s.reps || '—'}</div>
+                    </div>`).join('')}
+                  ${log.notes ? `<div style="margin-top:8px;font-size:12px;color:#a1a1aa;border-top:1px solid #27272a;padding-top:8px;">${escapeHtml(log.notes)}</div>` : ''}
+                </div>`
+            } else {
+              return `
+                <div style="background:#111113;border:1px solid #27272a;border-radius:10px;padding:14px 16px;">
+                  <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+                    <div style="width:24px;height:24px;border-radius:6px;background:#f97316;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:white;flex-shrink:0;margin-top:1px;">${i + 1}</div>
+                    <div>
+                      <div style="font-size:14px;font-weight:700;color:white;">${escapeHtml(ex.name || '—')}</div>
+                      <div style="font-size:11px;color:#71717a;">Target: ${targetStr}</div>
+                      ${exNotes}
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div style="background:#18181b;border-radius:8px;padding:10px 12px;">
+                      <div style="font-size:10px;font-weight:600;color:#52525b;margin-bottom:4px;">SETS COMPLETED</div>
+                      <div style="font-size:22px;font-weight:800;color:white;">${log.actual_sets ?? '—'}</div>
+                    </div>
+                    <div style="background:#18181b;border-radius:8px;padding:10px 12px;">
+                      <div style="font-size:10px;font-weight:600;color:#52525b;margin-bottom:4px;">BEST SET</div>
+                      <div style="font-size:20px;font-weight:800;color:#f97316;">${log.actual_weight ? log.actual_weight + ' lbs' : '—'}</div>
+                      <div style="font-size:12px;color:#71717a;margin-top:1px;">${log.actual_reps ? '× ' + log.actual_reps + ' reps' : ''}</div>
+                    </div>
+                  </div>
+                  ${log.notes ? `<div style="margin-top:10px;font-size:12px;color:#a1a1aa;border-top:1px solid #1c1c1f;padding-top:10px;">${escapeHtml(log.notes)}</div>` : ''}
+                </div>`
+            }
+          }).join('')}
+        </div>
+      </div>`
+  }
+
+  if (!logs.length && !metrics.length) {
+    html += `<div style="text-align:center;color:#52525b;font-size:13px;padding:16px 0;">No data recorded for this day.</div>`
+  }
+
+  content.innerHTML = html
+}
+
 function statBox(label, value, unit, color) {
   return `
     <div style="background:#18181b;border:1px solid #27272a;border-radius:12px;padding:14px 16px;">
