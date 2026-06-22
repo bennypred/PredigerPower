@@ -9,6 +9,9 @@ let _dashUser          = null
 let _viewingTarget     = null   // trainer only — null | athlete_id | 'group:GROUP_ID'
 let _weekOffset        = 0      // 0 = current week, -1 = last week, +1 = next week, etc.
 let _currentWeekDates  = [...WEEK_DATES]
+let _dashSaveTimer     = null
+let _dashSaveWorkoutId = ''
+let _dashSaveDate      = TODAY
 
 const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri']
 
