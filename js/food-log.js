@@ -15,6 +15,7 @@ let _flWeekOffset   = 0
 let _flWeekDates    = []
 let _flAthletes     = []
 let _flViewingId    = null   // trainer only: which athlete's log to view
+let _flSaveTimer    = null   // debounce handle
 
 async function initFoodLog(user) {
   _flUser         = user
@@ -57,6 +58,51 @@ async function flSwitchAthlete() {
   await renderFoodLogPage()
 }
 
+// ── Auto-save ─────────────────────────────────────────────────
+
+function flOnInput() {
+  flSetStatus('typing')
+  clearTimeout(_flSaveTimer)
+  _flSaveTimer = setTimeout(flDoSave, 1500)
+}
+
+function flSetStatus(state) {
+  const el = document.getElementById('fl-save-status')
+  if (!el) return
+  if (state === 'typing')  { el.textContent = 'Unsaved…';  el.style.color = '#52525b' }
+  if (state === 'saving')  { el.textContent = 'Saving…';   el.style.color = '#71717a' }
+  if (state === 'saved')   { el.textContent = '✓ Saved';   el.style.color = '#22c55e' }
+  if (state === 'error')   { el.textContent = 'Error — try again'; el.style.color = '#ef4444' }
+}
+
+async function flDoSave() {
+  const trainer  = isTrainer(_flUser)
+  const targetId = trainer ? _flViewingId : _flUser.id
+  if (!targetId) return
+
+  flSetStatus('saving')
+
+  const entry = {}
+  FL_MEALS.forEach(m => {
+    const el = document.getElementById(`fl_meal_${m.id}`)
+    entry[m.id] = el ? el.value : ''
+  })
+
+  if (DEMO_MODE) {
+    lsSet(`p3_food_${targetId}_${_flSelectedDate}`, entry)
+    flSetStatus('saved')
+    return
+  }
+
+  const { error } = await window._supabase
+    .from('food_logs')
+    .upsert(
+      { athlete_id: targetId, log_date: _flSelectedDate, ...entry },
+      { onConflict: 'athlete_id,log_date' }
+    )
+  flSetStatus(error ? 'error' : 'saved')
+}
+
 // ── Data helpers ──────────────────────────────────────────────
 
 async function flGetEntry(athleteId, date) {
@@ -72,44 +118,14 @@ async function flGetEntry(athleteId, date) {
   return data || {}
 }
 
-async function flSaveEntry() {
-  const user     = _flUser
-  const trainer  = isTrainer(user)
-  const targetId = trainer ? _flViewingId : user.id
-  if (!targetId) return
-
-  const entry = {}
-  FL_MEALS.forEach(m => {
-    const el = document.getElementById(`fl_meal_${m.id}`)
-    entry[m.id] = el ? el.value.trim() : ''
-  })
-
-  if (DEMO_MODE) {
-    lsSet(`p3_food_${targetId}_${_flSelectedDate}`, entry)
-    showToast('Food log saved!', 'success')
-    return
-  }
-
-  const { error } = await window._supabase
-    .from('food_logs')
-    .upsert(
-      { athlete_id: targetId, log_date: _flSelectedDate, ...entry },
-      { onConflict: 'athlete_id,log_date' }
-    )
-  if (error) showToast('Error saving — try again.', 'error')
-  else showToast('Food log saved!', 'success')
-}
-
 // ── Render ────────────────────────────────────────────────────
 
 async function renderFoodLogPage() {
   const user    = _flUser
   const trainer = isTrainer(user)
   const date    = _flSelectedDate
+  const viewId  = trainer ? _flViewingId : user.id
 
-  const viewId = trainer ? _flViewingId : user.id
-
-  // Week nav label
   const wkLabel = _flWeekOffset === 0 ? 'This Week'
     : _flWeekOffset < 0 ? `${Math.abs(_flWeekOffset)} Week${Math.abs(_flWeekOffset) > 1 ? 's' : ''} Ago`
     : `${_flWeekOffset} Week${_flWeekOffset > 1 ? 's' : ''} Ahead`
@@ -149,7 +165,6 @@ async function renderFoodLogPage() {
       </button>`
   }).join('')
 
-  // Trainer athlete selector
   let trainerSelectorHTML = ''
   if (trainer) {
     const opts = _flAthletes.map(a =>
@@ -171,7 +186,6 @@ async function renderFoodLogPage() {
       </div>`
   }
 
-  // Build page skeleton first so UI appears immediately
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric'
   })
@@ -196,20 +210,19 @@ async function renderFoodLogPage() {
     return
   }
 
-  // Loading state for meals while we fetch
   pageHTML += `
-    <div style="font-size:13px;font-weight:700;color:#71717a;margin-bottom:14px;text-transform:uppercase;letter-spacing:0.06em;">${dateLabel}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;">${dateLabel}</div>
+      ${!trainer ? `<div id="fl-save-status" style="font-size:12px;font-weight:600;color:#52525b;transition:color 0.2s;"></div>` : ''}
+    </div>
     <div id="fl-meals-area">
       <div style="text-align:center;padding:40px;color:#52525b;font-size:13px;">Loading…</div>
     </div>`
 
   document.getElementById('page-content').innerHTML = pageHTML
 
-  // Now fetch the entry and fill in meals
-  const entry = viewId ? await flGetEntry(viewId, date) : {}
-
+  const entry      = viewId ? await flGetEntry(viewId, date) : {}
   const isFuture   = date > TODAY
-  const readOnly   = trainer
   const hasContent = Object.values(entry).some(v => v && v.trim())
 
   let mealsHTML = ''
@@ -219,41 +232,35 @@ async function renderFoodLogPage() {
       <div style="background:#18181b;border:1px solid #27272a;border-radius:14px;padding:40px 24px;text-align:center;">
         <div style="font-size:13px;color:#52525b;">Log opens on the day — come back then!</div>
       </div>`
+  } else if (trainer && !hasContent) {
+    mealsHTML = `
+      <div style="background:#111113;border:1px solid #27272a;border-radius:14px;padding:40px 24px;text-align:center;">
+        <div style="font-size:13px;color:#52525b;">No food logged for this day.</div>
+      </div>`
   } else {
     mealsHTML = FL_MEALS.map(m => {
       const val = entry[m.id] || ''
+      if (trainer && !val) return ''   // skip empty meals in read-only view
       return `
         <div class="meal-card">
           <div class="meal-label">
             <span class="meal-icon">${m.icon}</span>
             ${m.label}
           </div>
-          ${readOnly
+          ${trainer
             ? `<div class="meal-readonly" style="color:${val ? 'white' : '#3f3f46'};">${val ? escapeHtml(val) : 'Nothing logged'}</div>`
-            : `<textarea id="fl_meal_${m.id}" class="meal-textarea" placeholder="${m.placeholder}">${escapeHtml(val)}</textarea>`
+            : `<textarea id="fl_meal_${m.id}" class="meal-textarea" placeholder="${m.placeholder}"
+                 oninput="flOnInput()">${escapeHtml(val)}</textarea>`
           }
         </div>`
-    }).join('')
+    }).filter(Boolean).join('')
 
-    if (!readOnly) {
-      mealsHTML += `
-        <div style="margin-top:8px;display:flex;justify-content:flex-end;">
-          <button onclick="flSaveEntry()"
-            style="background:#f97316;border:none;color:white;font-size:15px;font-weight:700;
-              border-radius:12px;padding:14px 40px;cursor:pointer;transition:background 0.15s;"
-            onmouseover="this.style.background='#ea6c0a'"
-            onmouseout="this.style.background='#f97316'">
-            Save Food Log
-          </button>
-        </div>`
-    }
-
-    if (readOnly && !hasContent && !isFuture) {
-      mealsHTML = `
-        <div style="background:#111113;border:1px solid #27272a;border-radius:14px;padding:40px 24px;text-align:center;">
-          <div style="font-size:13px;color:#52525b;">No food logged for this day.</div>
-        </div>`
-    }
+    if (!trainer && !mealsHTML) mealsHTML = FL_MEALS.map(m => `
+        <div class="meal-card">
+          <div class="meal-label"><span class="meal-icon">${m.icon}</span>${m.label}</div>
+          <textarea id="fl_meal_${m.id}" class="meal-textarea" placeholder="${m.placeholder}"
+            oninput="flOnInput()"></textarea>
+        </div>`).join('')
   }
 
   const mealsArea = document.getElementById('fl-meals-area')

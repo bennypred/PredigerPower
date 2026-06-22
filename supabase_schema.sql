@@ -318,6 +318,27 @@ drop policy if exists "view all metrics for leaderboard" on performance_metrics;
 create policy "view all metrics for leaderboard" on performance_metrics for select
   using (auth.uid() is not null);
 
+-- 4. Food Logs table
+--    Athletes log what they ate per meal per day.
+--    Trainers can read all logs; athletes can only read/write their own.
+create table if not exists food_logs (
+  id          uuid default uuid_generate_v4() primary key,
+  athlete_id  uuid references profiles(id) on delete cascade not null,
+  log_date    date not null,
+  breakfast   text,
+  lunch       text,
+  dinner      text,
+  snacks      text,
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now(),
+  unique (athlete_id, log_date)
+);
+alter table food_logs enable row level security;
+
+create policy "athletes manage own food logs" on food_logs for all
+  using  (athlete_id = auth.uid() or current_role_p3() = 'trainer')
+  with check (athlete_id = auth.uid() or current_role_p3() = 'trainer');
+
 -- ════════════════════════════════════════════════════════════
 -- Setup checklist
 -- ════════════════════════════════════════════════════════════
