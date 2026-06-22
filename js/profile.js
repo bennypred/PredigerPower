@@ -577,9 +577,11 @@ async function openDayLog(dateStr) {
       .filter(([, d]) => d?.value != null)
       .map(([key, d]) => ({ metric_type: key, value: d.value, unit: d.unit }))
 
-    renderDayLogContent(dateLabel, logs, metrics, 'demo')
+    const foodEntry = lsGet(`p3_food_${_athleteId}_${dateStr}`) || {}
+
+    renderDayLogContent(dateLabel, logs, metrics, 'demo', foodEntry)
   } else {
-    const [logsRes, metricsRes] = await Promise.all([
+    const [logsRes, metricsRes, foodRes] = await Promise.all([
       window._supabase
         .from('workout_logs')
         .select('actual_sets, actual_reps, actual_weight, notes, exercise:exercises!exercise_id(name, sets, reps, target_weight, notes, order_index)')
@@ -590,16 +592,23 @@ async function openDayLog(dateStr) {
         .select('metric_type, value, unit')
         .eq('athlete_id', _athleteId)
         .eq('recorded_date', dateStr),
+      window._supabase
+        .from('food_logs')
+        .select('breakfast, lunch, dinner, snacks')
+        .eq('athlete_id', _athleteId)
+        .eq('log_date', dateStr)
+        .maybeSingle(),
     ])
 
     const logs    = (logsRes.data || []).sort((a, b) => (a.exercise?.order_index || 0) - (b.exercise?.order_index || 0))
     const metrics = metricsRes.data || []
+    const foodEntry = foodRes.data || {}
 
-    renderDayLogContent(dateLabel, logs, metrics, 'live')
+    renderDayLogContent(dateLabel, logs, metrics, 'live', foodEntry)
   }
 }
 
-function renderDayLogContent(dateLabel, logs, metrics, mode) {
+function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}) {
   const content = document.getElementById('day-log-content')
   if (!content) return
 
