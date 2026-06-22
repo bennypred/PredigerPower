@@ -15,6 +15,49 @@ let _dashSaveDate      = TODAY
 
 const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri']
 
+// Fetches saved logs/metrics for a date from Supabase and caches them to
+// localStorage so renderDayContent can read them synchronously.
+// Only runs in live mode and only if localStorage is empty for that date.
+async function prefetchSavedLogs(userId, date) {
+  if (DEMO_MODE || !window._supabase) return
+  if (lsGet(`p3_logs_${userId}_${date}`) || lsGet(`p3_metrics_${userId}_${date}`)) return
+
+  const [{ data: logData }, { data: metricData }] = await Promise.all([
+    window._supabase
+      .from('workout_logs')
+      .select('exercise_id, actual_sets, actual_reps, actual_weight, notes')
+      .eq('athlete_id', userId)
+      .eq('logged_date', date),
+    window._supabase
+      .from('performance_metrics')
+      .select('metric_type, value, unit')
+      .eq('athlete_id', userId)
+      .eq('recorded_date', date),
+  ])
+
+  if (logData?.length) {
+    const logs = {}
+    logData.forEach(r => {
+      const n = r.actual_sets || 1
+      logs[r.exercise_id] = {
+        sets: Array.from({ length: n }, (_, i) => ({
+          set:    i + 1,
+          weight: r.actual_weight != null ? String(r.actual_weight) : '',
+          reps:   r.actual_reps   != null ? String(r.actual_reps)   : '',
+        })),
+        notes: r.notes || '',
+      }
+    })
+    lsSet(`p3_logs_${userId}_${date}`, logs)
+  }
+
+  if (metricData?.length) {
+    const metrics = {}
+    metricData.forEach(r => { metrics[r.metric_type] = { value: r.value, unit: r.unit } })
+    lsSet(`p3_metrics_${userId}_${date}`, metrics)
+  }
+}
+
 async function changeWeek(delta) {
   _weekOffset        += delta
   _currentWeekDates   = getWeekDatesForOffset(_weekOffset)
