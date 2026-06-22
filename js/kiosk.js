@@ -814,12 +814,15 @@ async function saveKioskLog(userId, silent = false) {
 
       _drafts[slotKey] = null
     } catch(e) {
-      showToast('Error saving — check connection', 'error')
+      if (silent) kioskSetStatus('error')
+      else showToast('Error saving — check connection', 'error')
       return
     }
   }
 
-  const firstName = user.full_name.split(' ')[0]
-  showToast(`${firstName}'s log saved!`, 'success')
-  renderKiosk()
+  kioskSetStatus('saved')
+  if (!silent) {
+    const firstName = user.full_name.split(' ')[0]
+    showToast(`${firstName}'s log saved!`, 'success')
+  }
 }
