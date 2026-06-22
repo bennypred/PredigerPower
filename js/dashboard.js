@@ -899,6 +899,9 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
         )
       }
     }
+    // Cache full set data locally so the athlete can view it when switching days
+    lsSet(`p3_logs_${user.id}_${date}`, logs)
+    lsSet(`p3_metrics_${user.id}_${date}`, metrics)
     if (silent) dashSetStatus('saved'); else showToast('Log saved!', 'success')
   } catch { if (silent) dashSetStatus('error'); else showToast('Error saving. Try again.', 'error') }
 }
