@@ -2,11 +2,12 @@
 // Leaderboard (configurable)
 // ============================================================
 
-let _activeTab   = null
-let _lbUser      = null
-let _configOpen  = false
-let _allMetrics  = null
-let _allLiftLogs = []
+let _activeTab      = null
+let _lbUser         = null
+let _configOpen     = false
+let _allMetrics     = null
+let _allLiftLogs    = []
+let _sessionCounts  = {}   // athlete_id → distinct training days (from lift logs)
 
 // Available metric options
 const METRIC_OPTIONS = [
@@ -44,9 +45,23 @@ function buildTabs(config) {
 }
 
 async function initPage(user) {
-  _lbUser = user
+  _lbUser      = user
   _allMetrics  = await getMetrics()
   _allLiftLogs = await getLiftLogs()
+
+  // Build session counts: distinct training days per athlete
+  const sessionSets = {}
+  const allLogs = DEMO_MODE
+    ? [...DEMO_LIFT_HISTORY, ...getLocalLiftHistory()]
+    : _allLiftLogs
+  allLogs.forEach(r => {
+    if (!sessionSets[r.athlete_id]) sessionSets[r.athlete_id] = new Set()
+    sessionSets[r.athlete_id].add(r.date)
+  })
+  Object.keys(sessionSets).forEach(id => {
+    _sessionCounts[id] = sessionSets[id].size
+  })
+
   const config = getLBConfig()
   const tabs   = buildTabs(config)
   _activeTab   = tabs[0]?.id || null
@@ -287,7 +302,7 @@ function renderRow(row, rank, tab) {
   const name  = row.athlete?.full_name || row.athlete_id
   const init  = initials(name)
   const isTop = rank <= 3
-  const sessions = DEMO_SESSION_COUNTS[row.athlete_id] || '—'
+  const sessions = _sessionCounts[row.athlete_id] || '—'
   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank
 
   return `

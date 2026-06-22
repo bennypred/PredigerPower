@@ -229,6 +229,96 @@ create trigger on_auth_user_created
   for each row execute function handle_new_user();
 
 -- ════════════════════════════════════════════════════════════
+-- Migration — run the block below if you've already run the schema above
+-- ════════════════════════════════════════════════════════════
+
+-- 1. Add % of 1RM fields to exercises (used by the % range feature in workouts)
+alter table exercises add column if not exists pct_min integer;
+alter table exercises add column if not exists pct_max integer;
+
+-- 2. Kiosk save RPC
+--    Saves metrics + lift logs for an athlete identified by their 3-digit code.
+--    Runs as security definer so kiosk sessions (no auth token) can write data.
+create or replace function save_kiosk_log(
+  p_code          text,
+  p_date          date,
+  p_metrics       jsonb,   -- { metric_type: { value: number, unit: string } }
+  p_exercise_logs jsonb    -- [{ exercise_id, actual_sets, actual_reps, actual_weight, notes }]
+)
+returns void
+language plpgsql security definer as $$
+declare
+  v_athlete_id uuid;
+begin
+  select id into v_athlete_id
+  from profiles
+  where athlete_code = upper(trim(p_code))
+  limit 1;
+
+  if v_athlete_id is null then
+    raise exception 'athlete not found for code %', p_code;
+  end if;
+
+  -- Save performance metrics
+  if p_metrics is not null then
+    insert into performance_metrics (athlete_id, metric_type, value, unit, recorded_date)
+    select
+      v_athlete_id,
+      key,
+      (value->>'value')::numeric,
+      value->>'unit',
+      p_date
+    from jsonb_each(p_metrics)
+    on conflict (athlete_id, metric_type, recorded_date)
+    do update set value = excluded.value, unit = excluded.unit;
+  end if;
+
+  -- Save workout / lift logs
+  if p_exercise_logs is not null then
+    insert into workout_logs (exercise_id, athlete_id, logged_date, actual_sets, actual_reps, actual_weight, notes)
+    select
+      (log->>'exercise_id')::uuid,
+      v_athlete_id,
+      p_date,
+      (log->>'actual_sets')::integer,
+      (log->>'actual_reps')::integer,
+      (log->>'actual_weight')::numeric,
+      log->>'notes'
+    from jsonb_array_elements(p_exercise_logs) as log
+    on conflict (exercise_id, athlete_id, logged_date)
+    do update set
+      actual_sets   = excluded.actual_sets,
+      actual_reps   = excluded.actual_reps,
+      actual_weight = excluded.actual_weight,
+      notes         = excluded.notes;
+  end if;
+end;
+$$;
+
+-- 3. Open up read access so the leaderboard works for all athletes
+--    (the original policies restricted athletes to their own data only)
+
+-- Profiles: allow any signed-in user to see all profiles (needed for name display in leaderboard)
+drop policy if exists "view own or all if trainer" on profiles;
+create policy "authenticated users view all profiles" on profiles for select
+  using (auth.uid() is not null);
+
+-- Exercises: allow any signed-in user to read exercises (needed for leaderboard lift name joins)
+drop policy if exists "view exercises of visible workouts" on exercises;
+create policy "authenticated users view all exercises" on exercises for select
+  using (auth.uid() is not null);
+
+-- Workout logs: allow any signed-in user to read all logs (needed for lift rankings in leaderboard)
+drop policy if exists "view all logs for leaderboard" on workout_logs;
+create policy "view all logs for leaderboard" on workout_logs for select
+  using (auth.uid() is not null);
+
+-- Performance metrics: allow any signed-in user to read all metrics (needed for metric rankings)
+drop policy if exists "view all metrics for leaderboard" on performance_metrics;
+create policy "view all metrics for leaderboard" on performance_metrics for select
+  using (auth.uid() is not null);
+
+-- ════════════════════════════════════════════════════════════
 -- Setup checklist
 -- ════════════════════════════════════════════════════════════
 -- 1. Run this SQL in: supabase.com → your project → SQL Editor
