@@ -812,10 +812,11 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
     lsSet(`p3_lift_log_${user.id}`, liftLog)
 
     markAttendance(user.id, date)
-    showToast('Log saved!', 'success')
+    if (silent) dashSetStatus('saved'); else showToast('Log saved!', 'success')
     return
   }
 
+  if (silent) dashSetStatus('saving')
   try {
     if (Object.keys(metrics).length) {
       await window._supabase.from('performance_metrics').upsert(
@@ -853,8 +854,8 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
         )
       }
     }
-    showToast('Log saved!', 'success')
-  } catch { showToast('Error saving. Try again.', 'error') }
+    if (silent) dashSetStatus('saved'); else showToast('Log saved!', 'success')
+  } catch { if (silent) dashSetStatus('error'); else showToast('Error saving. Try again.', 'error') }
 }
 
 function markAttendance(athleteId, date) {
