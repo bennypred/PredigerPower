@@ -362,6 +362,9 @@ function renderDayContent(user, date) {
   const savedMetrics = lsGet(`p3_metrics_${user.id}_${date}`)            || {}
   const prevLogs     = lsGet(`p3_logs_${user.id}_${prevWeekDate(date)}`) || {}
 
+  _dashSaveWorkoutId = workout?.id || ''
+  _dashSaveDate      = date
+
   return header + `
     ${!isFuture ? `
     <div style="margin-bottom:28px;">
