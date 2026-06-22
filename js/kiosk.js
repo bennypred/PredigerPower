@@ -804,6 +804,7 @@ async function saveKioskLog(userId, silent = false) {
           actual_reps:   bestReps        || null,
           actual_weight: bestWeight      || null,
           notes:         logs[ex.id]?.notes || null,
+          sets_data:     sets.length ? sets : null,
         }
       }).filter(r => r.actual_sets || r.actual_weight)
 
