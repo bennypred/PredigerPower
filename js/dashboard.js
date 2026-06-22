@@ -44,6 +44,7 @@ async function initPage(user) {
 
   _weekWorkouts = await getWeekWorkouts(user)
   renderDashboard(user, _weekWorkouts)
+  setupDashAutoSave()
 }
 
 async function getWeekWorkouts(user) {
