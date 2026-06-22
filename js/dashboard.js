@@ -379,8 +379,9 @@ function renderDayContent(user, date) {
     ${workout ? renderWorkoutSection(workout, exercises, savedLogs, prevLogs, user.id) : renderRestDay()}
 
     ${!isFuture ? `
-    <div style="margin-top:24px;display:flex;justify-content:flex-end;">
-      <button onclick="saveLog('${workout?.id || ''}','${date}')" class="btn-primary" style="padding:13px 36px;font-size:15px;">
+    <div style="margin-top:24px;display:flex;justify-content:flex-end;align-items:center;gap:14px;">
+      <span id="dash-save-status" style="font-size:12px;font-weight:600;color:#52525b;transition:color 0.2s;"></span>
+      <button onclick="saveLog('${workout?.id || ''}','${date}',false)" class="btn-primary" style="padding:13px 36px;font-size:15px;">
         ${isPast ? 'Update Log' : 'Save Log'}
       </button>
     </div>` : ''}
