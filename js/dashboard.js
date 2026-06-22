@@ -257,9 +257,10 @@ function renderDashboard(user, weekWorkouts) {
   `
 }
 
-function switchDay(date) {
+async function switchDay(date) {
   _selectedDate  = date
   _viewingTarget = null
+  if (!isTrainer(_dashUser)) await prefetchSavedLogs(_dashUser.id, date)
   renderDashboard(_dashUser, _weekWorkouts)
   setTimeout(() => document.getElementById('day-content')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60)
 }
