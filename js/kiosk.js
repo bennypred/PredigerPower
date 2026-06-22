@@ -638,8 +638,9 @@ function renderActiveSlot() {
         ? `<div style="margin-top:28px;text-align:center;padding:14px 20px;background:#18181b;border:1px solid #27272a;border-radius:14px;">
              <span style="font-size:13px;color:#52525b;">Upcoming — log opens on the training day</span>
            </div>`
-        : `<div style="margin-top:28px;display:flex;justify-content:flex-end;">
-             <button onclick="saveKioskLog('${user.id}')"
+        : `<div style="margin-top:28px;display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+             <div id="kiosk-save-status" style="font-size:13px;font-weight:700;color:#71717a;transition:color 0.2s;min-height:18px;"></div>
+             <button onclick="saveKioskLog('${user.id}', false)"
                style="padding:18px 52px;background:#f97316;border:none;border-radius:14px;color:white;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(249,115,22,0.35);transition:opacity 0.15s;-webkit-tap-highlight-color:transparent;"
                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
                ${alreadySaved ? 'Update Log ✓' : 'Save Log ✓'}
