@@ -22,6 +22,7 @@ function initSidebar(currentUser) {
     { href: 'messages.html',    label: 'Message Board',    icon: messageIcon(),   match: 'messages'  },
     { href: 'leaderboard.html', label: 'Leaderboard',      icon: trophyIcon(),    match: 'leaderboard' },
     { href: 'profile.html',     label: 'My Profile',       icon: profileIcon(),   match: 'profile'   },
+    { href: 'food-log.html',    label: 'Food Log',         icon: foodIcon(),      match: 'food-log'  },
   ]
 
   let navHTML = navItems.map(item => {
