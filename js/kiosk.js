@@ -237,6 +237,8 @@ async function kioskSubmit() {
   _codeBuf             = ''
   _kioskWeekOffset     = 0
   _kioskWeekDates      = [...WEEK_DATES]
+  // Prefetch saved logs for every day of this week so day switching shows prior data
+  if (!DEMO_MODE) await Promise.all(WEEK_DATES.map(d => prefetchSavedLogs(athlete.id, d)))
   renderKiosk()
 }
 
@@ -286,22 +288,23 @@ function closeKioskMenu() {
 
 // ── Week day selection ────────────────────────────────────────
 
-function kioskChangeWeek(delta) {
+async function kioskChangeWeek(delta) {
   _kioskWeekOffset += delta
   _kioskWeekDates   = getWeekDatesForOffset(_kioskWeekOffset)
-  // If the slot's selected date is outside the new week, land on Monday
   const slot = _slots[_active]
   if (slot && !_kioskWeekDates.includes(slot.selectedDate)) {
     slot.selectedDate = _kioskWeekDates[0]
   }
+  if (!DEMO_MODE && slot) await Promise.all(_kioskWeekDates.map(d => prefetchSavedLogs(slot.user.id, d)))
   renderKiosk()
 }
 
-function kioskSwitchDay(date) {
+async function kioskSwitchDay(date) {
   const slot = _slots[_active]
   if (!slot || slot.selectedDate === date) return
   slot.selectedDate = date
   _drafts[_active] = null
+  if (!DEMO_MODE) await prefetchSavedLogs(slot.user.id, date)
   renderKiosk()
 }
 
@@ -813,6 +816,9 @@ async function saveKioskLog(userId, silent = false) {
       if (error) throw error
 
       _drafts[slotKey] = null
+      // Cache full set data locally so athlete can view it on day switch
+      lsSet(`p3_logs_${userId}_${date}`, logs)
+      lsSet(`p3_metrics_${userId}_${date}`, metrics)
     } catch(e) {
       if (silent) kioskSetStatus('error')
       else showToast('Error saving — check connection', 'error')

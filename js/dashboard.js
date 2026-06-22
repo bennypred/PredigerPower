@@ -18,9 +18,15 @@ const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri']
 // Fetches saved logs/metrics for a date from Supabase and caches them to
 // localStorage so renderDayContent can read them synchronously.
 // Only runs in live mode and only if localStorage is empty for that date.
-async function prefetchSavedLogs(userId, date) {
+// Fetches saved logs/metrics for a date from Supabase and writes them to
+// localStorage so renderDayContent can read them synchronously.
+// `force` = true skips the "already cached" check (used when navigating to past days).
+async function prefetchSavedLogs(userId, date, force = false) {
   if (DEMO_MODE || !window._supabase) return
-  if (lsGet(`p3_logs_${userId}_${date}`) || lsGet(`p3_metrics_${userId}_${date}`)) return
+  // For today, skip if already cached — auto-save keeps localStorage fresh.
+  // For past dates, always refresh so edits from other devices show up.
+  const isPastDate = date < TODAY
+  if (!force && !isPastDate && (lsGet(`p3_logs_${userId}_${date}`) || lsGet(`p3_metrics_${userId}_${date}`))) return
 
   const [{ data: logData }, { data: metricData }] = await Promise.all([
     window._supabase
@@ -49,12 +55,17 @@ async function prefetchSavedLogs(userId, date) {
       }
     })
     lsSet(`p3_logs_${userId}_${date}`, logs)
+  } else if (isPastDate) {
+    // Clear stale localStorage if Supabase has nothing for this date
+    localStorage.removeItem(`p3_logs_${userId}_${date}`)
   }
 
   if (metricData?.length) {
     const metrics = {}
     metricData.forEach(r => { metrics[r.metric_type] = { value: r.value, unit: r.unit } })
     lsSet(`p3_metrics_${userId}_${date}`, metrics)
+  } else if (isPastDate) {
+    localStorage.removeItem(`p3_metrics_${userId}_${date}`)
   }
 }
 
