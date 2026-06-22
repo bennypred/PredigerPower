@@ -339,7 +339,62 @@ create policy "athletes manage own food logs" on food_logs for all
   using  (athlete_id = auth.uid() or current_role_p3() = 'trainer')
   with check (athlete_id = auth.uid() or current_role_p3() = 'trainer');
 
--- 5. Sleep Logs table
+-- 5a. Store full per-set data so athletes can view and edit previous workouts accurately
+alter table workout_logs add column if not exists sets_data jsonb;
+
+-- Update the kiosk RPC to save sets_data
+create or replace function save_kiosk_log(
+  p_code          text,
+  p_date          date,
+  p_metrics       jsonb,
+  p_exercise_logs jsonb
+)
+returns void
+language plpgsql security definer as $$
+declare
+  v_athlete_id uuid;
+begin
+  select id into v_athlete_id
+  from profiles
+  where athlete_code = upper(trim(p_code))
+  limit 1;
+
+  if v_athlete_id is null then
+    raise exception 'athlete not found for code %', p_code;
+  end if;
+
+  if p_metrics is not null then
+    insert into performance_metrics (athlete_id, metric_type, value, unit, recorded_date)
+    select v_athlete_id, key, (value->>'value')::numeric, value->>'unit', p_date
+    from jsonb_each(p_metrics)
+    on conflict (athlete_id, metric_type, recorded_date)
+    do update set value = excluded.value, unit = excluded.unit;
+  end if;
+
+  if p_exercise_logs is not null then
+    insert into workout_logs (exercise_id, athlete_id, logged_date, actual_sets, actual_reps, actual_weight, notes, sets_data)
+    select
+      (log->>'exercise_id')::uuid,
+      v_athlete_id,
+      p_date,
+      (log->>'actual_sets')::integer,
+      (log->>'actual_reps')::integer,
+      (log->>'actual_weight')::numeric,
+      log->>'notes',
+      log->'sets_data'
+    from jsonb_array_elements(p_exercise_logs) as log
+    on conflict (exercise_id, athlete_id, logged_date)
+    do update set
+      actual_sets   = excluded.actual_sets,
+      actual_reps   = excluded.actual_reps,
+      actual_weight = excluded.actual_weight,
+      notes         = excluded.notes,
+      sets_data     = excluded.sets_data;
+  end if;
+end;
+$$;
+
+-- 5b. Sleep Logs table
 create table if not exists sleep_logs (
   id           uuid default uuid_generate_v4() primary key,
   athlete_id   uuid references profiles(id) on delete cascade not null,
