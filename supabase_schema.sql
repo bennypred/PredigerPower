@@ -339,7 +339,21 @@ create policy "athletes manage own food logs" on food_logs for all
   using  (athlete_id = auth.uid() or current_role_p3() = 'trainer')
   with check (athlete_id = auth.uid() or current_role_p3() = 'trainer');
 
--- 5a. Store full per-set data so athletes can view and edit previous workouts accurately
+-- 5a. Athlete groups (for assigning workouts to multiple athletes at once)
+create table if not exists athlete_groups (
+  id          text primary key,           -- 'g_<timestamp>' generated in JS
+  name        text not null,
+  athlete_ids jsonb not null default '[]',
+  created_at  timestamptz default now()
+);
+alter table athlete_groups enable row level security;
+create policy "trainers manage groups" on athlete_groups for all
+  using  (current_role_p3() = 'trainer')
+  with check (current_role_p3() = 'trainer');
+create policy "authenticated read groups" on athlete_groups for select
+  using (auth.uid() is not null);
+
+-- 5b. Store full per-set data so athletes can view and edit previous workouts accurately
 alter table workout_logs add column if not exists sets_data jsonb;
 
 -- Update the kiosk RPC to save sets_data
