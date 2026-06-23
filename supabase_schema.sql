@@ -353,7 +353,44 @@ create policy "trainers manage groups" on athlete_groups for all
 create policy "authenticated read groups" on athlete_groups for select
   using (auth.uid() is not null);
 
--- 5b. Store full per-set data so athletes can view and edit previous workouts accurately
+-- 5c. RPCs so code-login athletes (no Supabase auth session) can save food/sleep logs
+create or replace function save_food_log(
+  p_code text, p_date date,
+  p_breakfast text, p_lunch text, p_dinner text, p_snacks text
+)
+returns void language plpgsql security definer as $$
+declare v_athlete_id uuid;
+begin
+  select id into v_athlete_id from profiles
+  where athlete_code = upper(trim(p_code)) limit 1;
+  if v_athlete_id is null then raise exception 'athlete not found for code %', p_code; end if;
+  insert into food_logs (athlete_id, log_date, breakfast, lunch, dinner, snacks)
+  values (v_athlete_id, p_date, p_breakfast, p_lunch, p_dinner, p_snacks)
+  on conflict (athlete_id, log_date) do update set
+    breakfast = excluded.breakfast, lunch = excluded.lunch,
+    dinner = excluded.dinner, snacks = excluded.snacks, updated_at = now();
+end;
+$$;
+
+create or replace function save_sleep_log(
+  p_code text, p_date date,
+  p_sleep_time time, p_wake_time time, p_energy_level integer, p_notes text
+)
+returns void language plpgsql security definer as $$
+declare v_athlete_id uuid;
+begin
+  select id into v_athlete_id from profiles
+  where athlete_code = upper(trim(p_code)) limit 1;
+  if v_athlete_id is null then raise exception 'athlete not found for code %', p_code; end if;
+  insert into sleep_logs (athlete_id, log_date, sleep_time, wake_time, energy_level, notes)
+  values (v_athlete_id, p_date, p_sleep_time, p_wake_time, p_energy_level, p_notes)
+  on conflict (athlete_id, log_date) do update set
+    sleep_time = excluded.sleep_time, wake_time = excluded.wake_time,
+    energy_level = excluded.energy_level, notes = excluded.notes, updated_at = now();
+end;
+$$;
+
+-- 5d. Store full per-set data so athletes can view and edit previous workouts accurately
 alter table workout_logs add column if not exists sets_data jsonb;
 
 -- Update the kiosk RPC to save sets_data
