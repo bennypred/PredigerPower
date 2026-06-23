@@ -101,6 +101,11 @@ async function initPage(user) {
     }
   }
 
+  // Hydrate groups from Supabase so group-workout routing works on any device
+  if (!DEMO_MODE && window._supabase) {
+    const { data: grps } = await window._supabase.from('athlete_groups').select('*').order('created_at')
+    if (grps) lsSet('p3_athlete_groups', grps)
+  }
   _weekWorkouts = await getWeekWorkouts(user)
   if (!isTrainer(user)) await prefetchSavedLogs(user.id, TODAY)
   renderDashboard(user, _weekWorkouts)
