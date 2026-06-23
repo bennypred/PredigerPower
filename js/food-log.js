@@ -94,12 +94,27 @@ async function flDoSave() {
     return
   }
 
-  const { error } = await window._supabase
-    .from('food_logs')
-    .upsert(
-      { athlete_id: targetId, log_date: _flSelectedDate, ...entry },
-      { onConflict: 'athlete_id,log_date' }
-    )
+  // Athletes log in via 3-digit code and have no Supabase auth session — use
+  // a security definer RPC that authenticates via athlete_code to bypass RLS.
+  // Trainers have a real auth session so they can upsert directly.
+  let error
+  if (!trainer && _flUser.athlete_code) {
+    ;({ error } = await window._supabase.rpc('save_food_log', {
+      p_code:      _flUser.athlete_code,
+      p_date:      _flSelectedDate,
+      p_breakfast: entry.breakfast || null,
+      p_lunch:     entry.lunch     || null,
+      p_dinner:    entry.dinner    || null,
+      p_snacks:    entry.snacks    || null,
+    }))
+  } else {
+    ;({ error } = await window._supabase
+      .from('food_logs')
+      .upsert(
+        { athlete_id: targetId, log_date: _flSelectedDate, ...entry },
+        { onConflict: 'athlete_id,log_date' }
+      ))
+  }
   flSetStatus(error ? 'error' : 'saved')
 }
 
