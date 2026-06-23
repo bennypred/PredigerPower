@@ -130,12 +130,26 @@ async function slDoSave() {
     return
   }
 
-  const { error } = await window._supabase
-    .from('sleep_logs')
-    .upsert(
-      { athlete_id: targetId, log_date: _slSelectedDate, ...entry },
-      { onConflict: 'athlete_id,log_date' }
-    )
+  // Athletes log in via 3-digit code and have no Supabase auth session — use
+  // a security definer RPC that authenticates via athlete_code to bypass RLS.
+  let error
+  if (!trainer && _slUser.athlete_code) {
+    ;({ error } = await window._supabase.rpc('save_sleep_log', {
+      p_code:         _slUser.athlete_code,
+      p_date:         _slSelectedDate,
+      p_sleep_time:   entry.sleep_time   || null,
+      p_wake_time:    entry.wake_time    || null,
+      p_energy_level: entry.energy_level || null,
+      p_notes:        entry.notes        || null,
+    }))
+  } else {
+    ;({ error } = await window._supabase
+      .from('sleep_logs')
+      .upsert(
+        { athlete_id: targetId, log_date: _slSelectedDate, ...entry },
+        { onConflict: 'athlete_id,log_date' }
+      ))
+  }
   slSetStatus(error ? 'error' : 'saved')
 }
 
