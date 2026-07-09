@@ -695,9 +695,10 @@ function renderExercise(ex, num, saved, _prev = {}, label = null, inGroup = fals
   const histSets   = lastRecord ? lastRecord.sets.filter(s => s.weight) : []
 
   // Current saved sets — seed with saved or default to target sets count
+  const defaultReps = ex.reps ? String(ex.reps) : ''
   const savedSets = Array.isArray(saved.sets) && saved.sets.length
     ? saved.sets
-    : Array.from({ length: parseInt(ex.sets) || 1 }, (_, i) => ({ set: i + 1, weight: '', reps: '' }))
+    : Array.from({ length: parseInt(ex.sets) || 1 }, (_, i) => ({ set: i + 1, weight: '', reps: defaultReps }))
 
   const setRowsHTML = savedSets.map((s, i) => renderSetRow(ex.id, i + 1, s.weight, s.reps)).join('')
 
