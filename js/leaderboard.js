@@ -188,6 +188,31 @@ async function getMetrics() {
 function renderLeaderboard(user, tabs) {
   const trainer = isTrainer(user)
 
+  // Athletes only see groups they belong to; trainers see all groups
+  const visibleGroups = trainer
+    ? _groups
+    : _groups.filter(g => Array.isArray(g.athlete_ids) && g.athlete_ids.includes(user.id))
+
+  const groupFilterHTML = visibleGroups.length ? `
+    <div style="margin-bottom:18px;">
+      <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">View</div>
+      <div id="group-filter-bar" style="display:flex;flex-wrap:wrap;gap:6px;">
+        <button onclick="switchGroup('all',this)"
+          id="gpill_all"
+          style="padding:6px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid #f97316;background:rgba(249,115,22,0.15);color:#f97316;transition:all 0.15s;">
+          All Athletes
+        </button>
+        ${visibleGroups.map(g => `
+          <button onclick="switchGroup('${escapeHtml(g.id)}',this)"
+            id="gpill_${escapeHtml(g.id)}"
+            style="padding:6px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid #27272a;background:#111113;color:#71717a;transition:all 0.15s;"
+            onmouseover="if(document.getElementById('gpill_${escapeHtml(g.id)}').dataset.active!=='1'){this.style.borderColor='#3f3f46';this.style.color='#a1a1aa'}"
+            onmouseout="if(document.getElementById('gpill_${escapeHtml(g.id)}').dataset.active!=='1'){this.style.borderColor='#27272a';this.style.color='#71717a'}">
+            ${escapeHtml(g.name)}
+          </button>`).join('')}
+      </div>
+    </div>` : ''
+
   document.getElementById('page-content').innerHTML = `
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
       <div>
@@ -206,7 +231,10 @@ function renderLeaderboard(user, tabs) {
     <!-- Config panel (hidden by default) -->
     <div id="config-panel" style="display:none;"></div>
 
-    <!-- Tabs -->
+    <!-- Group filter -->
+    ${groupFilterHTML}
+
+    <!-- Metric tabs -->
     <div id="tab-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:24px;">
       ${renderTabBar(tabs)}
     </div>
@@ -216,6 +244,28 @@ function renderLeaderboard(user, tabs) {
       ${tabs.length ? renderBoard(_allMetrics, _activeTab, tabs) : emptyConfigured()}
     </div>
   `
+}
+
+function switchGroup(groupId, btn) {
+  _activeGroup = groupId
+
+  // Update pill styles
+  document.querySelectorAll('#group-filter-bar button').forEach(b => {
+    b.dataset.active = '0'
+    b.style.borderColor = '#27272a'
+    b.style.background  = '#111113'
+    b.style.color       = '#71717a'
+  })
+  btn.dataset.active = '1'
+  btn.style.borderColor = '#f97316'
+  btn.style.background  = 'rgba(249,115,22,0.15)'
+  btn.style.color       = '#f97316'
+
+  const config = getLBConfig()
+  const tabs   = buildTabs(config)
+  document.getElementById('board-content').innerHTML = tabs.length
+    ? renderBoard(_allMetrics, _activeTab, tabs)
+    : emptyConfigured()
 }
 
 function renderTabBar(tabs) {
