@@ -497,9 +497,11 @@ function renderAttCell(day) {
       bg = 'rgba(34,197,94,0.15)'; border = '#22c55e'; numColor = '#22c55e'; break
     case 'absent':
       bg = 'rgba(239,68,68,0.1)'; border = 'rgba(239,68,68,0.5)'; numColor = '#ef4444'; break
+    case 'no-workout':
+      bg = '#111113'; border = '#1c1c1f'; numColor = '#52525b'; break
     case 'future':
       bg = '#111113'; border = '#27272a'; numColor = '#3f3f46'; break
-    default:
+    default: // today
       bg = 'rgba(249,115,22,0.1)'; border = 'rgba(249,115,22,0.5)'; numColor = '#f97316'; break
   }
 
