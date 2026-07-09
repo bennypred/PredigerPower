@@ -715,11 +715,12 @@ function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}, sle
           if (w || r) totalSets++
         })
       } else {
+        // actual_reps = total reps across all sets; actual_weight = best weight
         const w = parseFloat(log.actual_weight) || 0
         const r = parseInt(log.actual_reps)     || 0
-        const n = parseInt(log.actual_sets)     || 1
-        if (w && r) totalVolume += w * r * n
-        totalSets += n
+        const n = parseInt(log.actual_sets)     || 0
+        if (w && r) totalVolume += w * r
+        if (n) totalSets += n
       }
     })
 
