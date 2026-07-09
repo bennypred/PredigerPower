@@ -657,7 +657,9 @@ async function openDayLog(dateStr) {
         .maybeSingle(),
     ])
 
+    if (logsRes.error) console.error('[P3] workout_logs query error:', logsRes.error)
     const logs       = (logsRes.data || []).sort((a, b) => (a.exercise?.order_index || 0) - (b.exercise?.order_index || 0))
+    console.log('[P3] openDayLog logs:', JSON.stringify(logs))
     const metrics    = metricsRes.data || []
     const foodEntry  = foodRes.data   || {}
     const sleepEntry = sleepRes.data  || {}
