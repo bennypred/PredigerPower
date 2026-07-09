@@ -353,6 +353,14 @@ create policy "trainers manage groups" on athlete_groups for all
 create policy "authenticated read groups" on athlete_groups for select
   using (auth.uid() is not null);
 
+-- Public RPC: lets any user (including code-login athletes with no auth session) fetch groups
+create or replace function get_public_groups()
+returns table(id text, name text, athlete_ids jsonb)
+language sql security definer as $$
+  select id, name, athlete_ids from athlete_groups order by name;
+$$;
+grant execute on function get_public_groups() to anon, authenticated;
+
 -- 5c. RPCs so code-login athletes (no Supabase auth session) can save food/sleep logs
 create or replace function save_food_log(
   p_code text, p_date date,
