@@ -727,7 +727,7 @@ function renderExercise(ex, num, saved, _prev = {}, label = null, inGroup = fals
       </div>
 
       <!-- Set rows -->
-      <div id="sets_${ex.id}" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+      <div id="sets_${ex.id}" data-target-reps="${ex.reps || ''}" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
         <!-- header -->
         <div style="display:grid;grid-template-columns:36px 1fr 1fr 28px;gap:6px;padding:0 2px;">
           <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;text-align:center;">Set</div>
