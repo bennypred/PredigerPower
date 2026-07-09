@@ -142,13 +142,21 @@ async function getWeekWorkouts(user) {
   if (!isTrainer(user)) {
     const { data: sessionData } = await window._supabase.auth.getSession()
     if (!sessionData?.session) {
-      // No auth session (athlete code kiosk login) — use RPC to bypass RLS
+      // No auth session — use security definer RPC which filters by group membership
       const { data } = await window._supabase.rpc('get_athlete_workouts_by_code', {
         p_code:  user.athlete_code,
         p_start: _currentWeekDates[0],
         p_end:   _currentWeekDates[4],
       })
-      return (data || []).map(w => ({ ...w, exercises: w.exercises || [] }))
+      // RPC returns rows ordered by priority (individual > group > all-athletes).
+      // Deduplicate to one workout per date — first row wins.
+      const raw  = (data || []).map(w => ({ ...w, exercises: w.exercises || [] }))
+      const seen = new Set()
+      return raw.filter(w => {
+        if (seen.has(w.scheduled_date)) return false
+        seen.add(w.scheduled_date)
+        return true
+      })
     }
   }
 
@@ -165,7 +173,24 @@ async function getWeekWorkouts(user) {
   }
 
   const { data } = await q
-  return data || []
+  if (isTrainer(user)) return data || []
+
+  // For authenticated athletes, apply the same priority + deduplication
+  const all          = data || []
+  const groups       = lsGet('p3_athlete_groups') || []
+  const userGroupIds = groups.filter(g => g.athlete_ids.includes(user.id)).map(g => g.id)
+  const inGroup      = w => w.group_id && userGroupIds.includes(w.group_id)
+  const ordered = [
+    ...all.filter(w => w.athlete_id === user.id),
+    ...all.filter(w => inGroup(w)),
+    ...all.filter(w => !w.athlete_id && !w.group_id),
+  ]
+  const seen = new Set()
+  return ordered.filter(w => {
+    if (seen.has(w.scheduled_date)) return false
+    seen.add(w.scheduled_date)
+    return true
+  })
 }
 
 // ── Trainer: resolve a specific athlete's workout for a date ──

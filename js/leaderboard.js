@@ -46,7 +46,15 @@ function buildTabs(config) {
 }
 
 async function initPage(user) {
-  _lbUser      = user
+  _lbUser = user
+
+  // Fetch all athlete names via security definer RPC — works for code-login
+  // athletes who have no Supabase auth session and can't join profiles directly.
+  if (!DEMO_MODE && window._supabase) {
+    const { data: profiles } = await window._supabase.rpc('get_public_athlete_profiles')
+    if (profiles) profiles.forEach(p => { _profileMap[p.id] = p })
+  }
+
   _allMetrics  = await getMetrics()
   _allLiftLogs = await getLiftLogs()
 
@@ -262,9 +270,10 @@ function renderBoard(metrics, tabId, tabs) {
 
   if (!rows.length) return `<div class="empty-state"><p>No ${tab.label} data recorded yet.</p></div>`
 
-  const maleRows   = rows.filter(r => r.athlete?.gender === 'male')
-  const femaleRows = rows.filter(r => r.athlete?.gender === 'female')
-  const otherRows  = rows.filter(r => !['male','female'].includes(r.athlete?.gender))
+  const getGender = r => (r.athlete || _profileMap[r.athlete_id])?.gender
+  const maleRows   = rows.filter(r => getGender(r) === 'male')
+  const femaleRows = rows.filter(r => getGender(r) === 'female')
+  const otherRows  = rows.filter(r => !['male','female'].includes(getGender(r)))
 
   const footer = `
     <div style="margin-top:14px;text-align:right;font-size:12px;color:#52525b;">
@@ -300,8 +309,9 @@ function renderGenderSection(label, rows, tab) {
 }
 
 function renderRow(row, rank, tab) {
-  const name  = row.athlete?.full_name || row.athlete_id
-  const init  = initials(name)
+  const profile = row.athlete || _profileMap[row.athlete_id] || null
+  const name    = profile?.full_name || row.athlete_id
+  const init    = initials(name)
   const isTop = rank <= 3
   const sessions = _sessionCounts[row.athlete_id] || '—'
   const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank
