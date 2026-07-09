@@ -197,15 +197,19 @@ async function getWeekWorkouts(user) {
 
 function getWorkoutForDate(athleteId, date) {
   if (!DEMO_MODE) {
-    // _weekWorkouts has all workouts (trainers fetch unfiltered); match athlete or all-athletes
     const groups       = lsGet('p3_athlete_groups') || []
     const userGroupIds = groups.filter(g => g.athlete_ids.includes(athleteId)).map(g => g.id)
-    return _weekWorkouts.find(w =>
+    const candidates   = _weekWorkouts.filter(w =>
       w.scheduled_date === date &&
       (w.athlete_id === athleteId ||
        (w.group_id && userGroupIds.includes(w.group_id)) ||
        (!w.athlete_id && !w.group_id))
-    ) || null
+    )
+    // Priority: individual > group > all-athletes
+    return candidates.find(w => w.athlete_id === athleteId)
+        || candidates.find(w => w.group_id && userGroupIds.includes(w.group_id))
+        || candidates.find(w => !w.athlete_id && !w.group_id)
+        || null
   }
 
   const adminWorkouts = lsGet('p3_demo_workouts') || []
