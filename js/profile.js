@@ -537,10 +537,10 @@ function buildMonthGrid(attendance, year, month) {
       const rec     = attendance.find(r => r.date === dateStr)
 
       let status
-      if (!inMonth)          status = 'out-of-month'
+      if (!inMonth)             status = 'out-of-month'
       else if (dateStr > TODAY) status = 'future'
       else if (dateStr === TODAY) status = rec ? rec.status : 'today'
-      else                   status = rec ? rec.status : 'absent'
+      else                      status = rec ? rec.status : 'no-workout'
 
       week.push({ dateStr, dayNum: cur.getDate(), inMonth, status })
     }
