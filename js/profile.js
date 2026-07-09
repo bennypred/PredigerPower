@@ -398,10 +398,10 @@ function renderAttendanceSection(attendance) {
     streak++
   }
 
-  // Monthly attendance rate
-  const monthPast    = flatDays.filter(d => d.inMonth && d.dateStr <= TODAY)
-  const monthPresent = monthPast.filter(d => d.status === 'present').length
-  const monthRate    = monthPast.length ? Math.round(monthPresent / monthPast.length * 100) : 0
+  // Monthly attendance rate — only count days where a workout was scheduled
+  const monthScheduled = flatDays.filter(d => d.inMonth && d.dateStr < TODAY && (d.status === 'present' || d.status === 'absent'))
+  const monthPresent   = monthScheduled.filter(d => d.status === 'present').length
+  const monthRate      = monthScheduled.length ? Math.round(monthPresent / monthScheduled.length * 100) : 0
 
   // Nav limits
   const currentMonth = TODAY.substring(0, 7)
