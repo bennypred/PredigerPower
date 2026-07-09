@@ -2,15 +2,16 @@
 // Leaderboard (configurable)
 // ============================================================
 
-let _activeTab      = null
-let _lbUser         = null
-let _configOpen     = false
-let _allMetrics     = null
-let _allLiftLogs    = []
-let _sessionCounts  = {}   // athlete_id → distinct training days (from lift logs)
-let _profileMap     = {}   // athlete_id → { full_name, gender } — loaded via security definer RPC
-let _groups         = []   // all athlete groups from Supabase
-let _activeGroup    = 'all' // 'all' or a group id string
+let _activeTab        = null
+let _lbUser           = null
+let _configOpen       = false
+let _allMetrics       = null
+let _allLiftLogs      = []
+let _sessionCounts    = {}   // athlete_id → distinct training days (from lift logs)
+let _profileMap       = {}   // athlete_id → { full_name, gender } — loaded via security definer RPC
+let _groups           = []   // all athlete groups from Supabase
+let _activeGroup      = 'all' // 'all' or a group id string
+let _editingMetricId  = null  // id of the metric record currently being edited
 
 // Available metric options
 const METRIC_OPTIONS = [
