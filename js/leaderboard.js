@@ -326,7 +326,14 @@ function renderBoard(metrics, tabId, tabs) {
     if (DEMO_MODE) rows = rows.map(r => ({ ...r, athlete: getAthleteById(r.athlete_id) }))
   }
 
-  if (!rows.length) return `<div class="empty-state"><p>No ${tab.label} data recorded yet.</p></div>`
+  // Filter by active group if one is selected
+  if (_activeGroup !== 'all') {
+    const grp     = _groups.find(g => g.id === _activeGroup)
+    const allowed = new Set(Array.isArray(grp?.athlete_ids) ? grp.athlete_ids : [])
+    rows = rows.filter(r => allowed.has(r.athlete_id))
+  }
+
+  if (!rows.length) return `<div class="empty-state"><p>No ${tab.label} data recorded yet${_activeGroup !== 'all' ? ' for this group' : ''}.</p></div>`
 
   const getGender = r => (r.athlete || _profileMap[r.athlete_id])?.gender
   const maleRows   = rows.filter(r => getGender(r) === 'male')
