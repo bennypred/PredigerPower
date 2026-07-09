@@ -144,6 +144,36 @@ async function getMetricHistory(athleteId) {
   return data || []
 }
 
+// Returns the set of past dates that had a workout scheduled for this athlete
+// (individual, their groups, or all-athletes). Trainers have a Supabase auth session
+// so the direct table queries are fine here.
+async function getScheduledDates(athleteId) {
+  if (!window._supabase) return new Set()
+
+  // Fetch all groups to find which ones include this athlete
+  const { data: allGroups } = await window._supabase
+    .from('athlete_groups')
+    .select('id, athlete_ids')
+  const myGroupIds = (allGroups || [])
+    .filter(g => Array.isArray(g.athlete_ids) && g.athlete_ids.includes(athleteId))
+    .map(g => g.id)
+
+  // Build OR filter: individual | their groups | all-athletes
+  const orParts = [
+    `athlete_id.eq.${athleteId}`,
+    `and(athlete_id.is.null,group_id.is.null)`,
+    ...myGroupIds.map(gId => `group_id.eq.${gId}`),
+  ]
+
+  const { data } = await window._supabase
+    .from('workouts')
+    .select('scheduled_date')
+    .lte('scheduled_date', TODAY)
+    .or(orParts.join(','))
+
+  return new Set((data || []).map(r => r.scheduled_date))
+}
+
 async function getAttendance(athleteId) {
   if (DEMO_MODE) {
     const base = DEMO_ATTENDANCE.filter(r => r.athlete_id === athleteId)
@@ -152,13 +182,30 @@ async function getAttendance(athleteId) {
     overrides.filter(r => r.athlete_id === athleteId).forEach(r => map.set(r.date, r))
     return Array.from(map.values())
   }
-  // Derive attendance from workout logs: any date with a logged set = present
-  const { data } = await window._supabase
-    .from('workout_logs')
-    .select('logged_date')
-    .eq('athlete_id', athleteId)
-  const dates = new Set((data || []).map(r => r.logged_date))
-  return Array.from(dates).map(date => ({ athlete_id: athleteId, date, status: 'present' }))
+
+  // Fetch dates where the athlete actually logged something (= present)
+  // and dates where a workout was scheduled for them (to determine absent vs no-workout)
+  const [logsRes, scheduledDates] = await Promise.all([
+    window._supabase.from('workout_logs').select('logged_date').eq('athlete_id', athleteId),
+    getScheduledDates(athleteId),
+  ])
+
+  const presentDates = new Set((logsRes.data || []).map(r => r.logged_date))
+  const records = []
+
+  // Present: athlete logged on this date
+  presentDates.forEach(date => {
+    records.push({ athlete_id: athleteId, date, status: 'present' })
+  })
+
+  // Absent: workout was scheduled but nothing logged (past dates only)
+  scheduledDates.forEach(date => {
+    if (!presentDates.has(date) && date < TODAY) {
+      records.push({ athlete_id: athleteId, date, status: 'absent' })
+    }
+  })
+
+  return records
 }
 
 // ── Render profile ────────────────────────────────────────────
