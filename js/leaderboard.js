@@ -546,3 +546,136 @@ function saveAndApplyLBConfig() {
   toggleConfig()
   showToast('Leaderboard updated!', 'success')
 }
+
+// ── Metric entry editor (trainer only) ───────────────────────
+
+function openMetricEdit(metricId) {
+  const metric = _allMetrics.find(m => String(m.id) === String(metricId))
+  if (!metric) return
+  _editingMetricId = metricId
+
+  document.getElementById('metric-edit-modal')?.remove()
+
+  const profile     = _profileMap[metric.athlete_id] || metric.athlete || null
+  const athleteName = profile?.full_name || metric.athlete_id
+  const currentOpt  = METRIC_OPTIONS.find(o => o.id === metric.metric_type)
+
+  const overlay = document.createElement('div')
+  overlay.id = 'metric-edit-modal'
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;'
+  overlay.innerHTML = `
+    <div style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:24px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.6);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="font-size:15px;font-weight:700;color:white;">Edit Metric Entry</div>
+        <button onclick="closeMetricEdit()"
+          style="background:none;border:none;color:#52525b;font-size:20px;cursor:pointer;padding:2px 8px;line-height:1;transition:color 0.15s;"
+          onmouseover="this.style.color='white'" onmouseout="this.style.color='#52525b'">✕</button>
+      </div>
+
+      <div style="margin-bottom:16px;padding:10px 14px;background:#111113;border:1px solid #1c1c1f;border-radius:8px;">
+        <div style="font-size:10px;color:#52525b;font-weight:600;margin-bottom:2px;text-transform:uppercase;">Athlete</div>
+        <div style="font-size:14px;color:white;font-weight:600;">${escapeHtml(athleteName)}</div>
+      </div>
+
+      <div style="margin-bottom:16px;padding:10px 14px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.18);border-radius:8px;">
+        <div style="font-size:10px;color:#ef4444;font-weight:600;margin-bottom:3px;text-transform:uppercase;">Currently filed as</div>
+        <div style="font-size:13px;color:#fca5a5;">${escapeHtml(currentOpt?.label || metric.metric_type)} — ${metric.value} ${metric.unit || ''}</div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;color:#71717a;font-weight:600;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">Move to category</label>
+        <select id="edit-metric-type"
+          style="width:100%;background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 12px;color:white;font-size:14px;outline:none;cursor:pointer;"
+          onfocus="this.style.borderColor='#f97316'" onblur="this.style.borderColor='#27272a'">
+          ${METRIC_OPTIONS.map(m => `<option value="${m.id}" ${m.id === metric.metric_type ? 'selected' : ''}>${escapeHtml(m.label)} (${m.unit})</option>`).join('')}
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+        <div>
+          <label style="font-size:11px;color:#71717a;font-weight:600;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">Value</label>
+          <input type="number" id="edit-metric-value" value="${metric.value}" step="0.01" min="0"
+            style="width:100%;background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 12px;color:white;font-size:14px;outline:none;box-sizing:border-box;"
+            onfocus="this.style.borderColor='#f97316'" onblur="this.style.borderColor='#27272a'">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#71717a;font-weight:600;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;">Date</label>
+          <input type="date" id="edit-metric-date" value="${metric.recorded_date}"
+            style="width:100%;background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 12px;color:white;font-size:14px;outline:none;box-sizing:border-box;"
+            onfocus="this.style.borderColor='#f97316'" onblur="this.style.borderColor='#27272a'">
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button onclick="deleteMetricEntry()"
+          style="padding:10px 16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;transition:background 0.15s;"
+          onmouseover="this.style.background='rgba(239,68,68,0.18)'" onmouseout="this.style.background='rgba(239,68,68,0.08)'">
+          Delete
+        </button>
+        <div style="flex:1;"></div>
+        <button onclick="closeMetricEdit()"
+          style="padding:10px 18px;background:#1c1c1f;border:1px solid #27272a;border-radius:8px;color:#71717a;font-size:13px;font-weight:700;cursor:pointer;">
+          Cancel
+        </button>
+        <button onclick="saveMetricEdit()"
+          style="padding:10px 22px;background:#f97316;border:none;border-radius:8px;color:white;font-size:13px;font-weight:700;cursor:pointer;transition:opacity 0.15s;"
+          onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+          Save Changes
+        </button>
+      </div>
+    </div>
+  `
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeMetricEdit() })
+  document.body.appendChild(overlay)
+}
+
+function closeMetricEdit() {
+  document.getElementById('metric-edit-modal')?.remove()
+  _editingMetricId = null
+}
+
+async function saveMetricEdit() {
+  const newType  = document.getElementById('edit-metric-type')?.value
+  const newValue = parseFloat(document.getElementById('edit-metric-value')?.value)
+  const newDate  = document.getElementById('edit-metric-date')?.value
+
+  if (!newType || isNaN(newValue) || !newDate) {
+    showToast('Fill in all fields.', 'error'); return
+  }
+
+  const newUnit = METRIC_OPTIONS.find(o => o.id === newType)?.unit || ''
+  const { error } = await window._supabase
+    .from('performance_metrics')
+    .update({ metric_type: newType, value: newValue, unit: newUnit, recorded_date: newDate })
+    .eq('id', _editingMetricId)
+
+  if (error) { showToast('Save failed — ' + error.message, 'error'); return }
+
+  // Update in-memory data so the board reflects the change immediately
+  const idx = _allMetrics.findIndex(m => String(m.id) === String(_editingMetricId))
+  if (idx >= 0) _allMetrics[idx] = { ..._allMetrics[idx], metric_type: newType, value: newValue, unit: newUnit, recorded_date: newDate }
+
+  closeMetricEdit()
+  const config = getLBConfig()
+  const tabs   = buildTabs(config)
+  document.getElementById('board-content').innerHTML = renderBoard(_allMetrics, _activeTab, tabs)
+  showToast('Entry updated!', 'success')
+}
+
+async function deleteMetricEntry() {
+  if (!confirm('Permanently delete this entry?')) return
+
+  const { error } = await window._supabase
+    .from('performance_metrics')
+    .delete()
+    .eq('id', _editingMetricId)
+
+  if (error) { showToast('Delete failed — ' + error.message, 'error'); return }
+
+  _allMetrics = _allMetrics.filter(m => String(m.id) !== String(_editingMetricId))
+  closeMetricEdit()
+  const config = getLBConfig()
+  const tabs   = buildTabs(config)
+  document.getElementById('board-content').innerHTML = renderBoard(_allMetrics, _activeTab, tabs)
+  showToast('Entry deleted.', 'success')
+}
