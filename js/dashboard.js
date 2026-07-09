@@ -772,10 +772,11 @@ function renderSetRow(exId, setNum, weight = '', reps = '') {
 function addSetRow(exId) {
   const container = document.getElementById(`sets_${exId}`)
   if (!container) return
-  const existing  = container.querySelectorAll('[data-set-row]')
-  const nextNum   = existing.length + 1
-  const div       = document.createElement('div')
-  div.innerHTML   = renderSetRow(exId, nextNum)
+  const existing   = container.querySelectorAll('[data-set-row]')
+  const nextNum    = existing.length + 1
+  const targetReps = container.dataset.targetReps || ''
+  const div        = document.createElement('div')
+  div.innerHTML    = renderSetRow(exId, nextNum, '', targetReps)
   container.appendChild(div.firstElementChild)
 }
 
