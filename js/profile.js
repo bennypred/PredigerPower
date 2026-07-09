@@ -651,6 +651,55 @@ function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}, sle
 
   // Exercise logs
   if (logs.length) {
+    // ── Volume load summary ───────────────────────────────────
+    let totalVolume = 0
+    let totalSets   = 0
+    logs.forEach(log => {
+      if (mode === 'demo') {
+        ;(log.sets || []).forEach(s => {
+          const w = parseFloat(s.weight) || 0
+          const r = parseInt(s.reps)     || 0
+          totalVolume += w * r
+          if (w || r) totalSets++
+        })
+      } else if (Array.isArray(log.sets_data) && log.sets_data.length) {
+        log.sets_data.forEach(s => {
+          const w = parseFloat(s.weight) || 0
+          const r = parseInt(s.reps)     || 0
+          totalVolume += w * r
+          if (w || r) totalSets++
+        })
+      } else {
+        // Legacy rows: estimate from best-set summary × set count
+        const w = parseFloat(log.actual_weight) || 0
+        const r = parseInt(log.actual_reps)     || 0
+        const n = parseInt(log.actual_sets)      || 1
+        totalVolume += w * r * n
+        totalSets   += n
+      }
+    })
+
+    const fmtNum = n => n.toLocaleString('en-US', { maximumFractionDigits: 0 })
+
+    html += `
+      <div style="background:linear-gradient(135deg,rgba(249,115,22,0.08),rgba(249,115,22,0.03));border:1px solid rgba(249,115,22,0.25);border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+        <div style="font-size:10px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">⚡ Session Volume</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div>
+            <div style="font-size:10px;color:#52525b;font-weight:600;margin-bottom:3px;">TOTAL VOLUME</div>
+            <div style="font-size:20px;font-weight:900;color:white;">${fmtNum(totalVolume)}<span style="font-size:11px;font-weight:500;color:#71717a;"> lbs</span></div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#52525b;font-weight:600;margin-bottom:3px;">TOTAL SETS</div>
+            <div style="font-size:20px;font-weight:900;color:white;">${totalSets}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#52525b;font-weight:600;margin-bottom:3px;">EXERCISES</div>
+            <div style="font-size:20px;font-weight:900;color:white;">${logs.length}</div>
+          </div>
+        </div>
+      </div>`
+
     html += `
       <div>
         <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Exercises Logged</div>
