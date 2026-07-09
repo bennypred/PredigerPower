@@ -375,33 +375,48 @@ function renderGenderSection(label, rows, tab) {
 }
 
 function renderRow(row, rank, tab) {
-  const profile = row.athlete || _profileMap[row.athlete_id] || null
-  const name    = profile?.full_name || row.athlete_id
-  const init    = initials(name)
-  const isTop = rank <= 3
+  const profile  = row.athlete || _profileMap[row.athlete_id] || null
+  const name     = profile?.full_name || row.athlete_id
+  const init     = initials(name)
+  const isTop    = rank <= 3
   const sessions = _sessionCounts[row.athlete_id] || '—'
-  const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank
+  const medal    = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank
+
+  // Trainer edit button — only for performance metric rows (not lift 1RM rows)
+  const canEdit   = isTrainer(_lbUser) && !DEMO_MODE && !tab.isLift && row.id
+  const editBtn   = canEdit ? `
+    <button
+      onclick="event.preventDefault();event.stopPropagation();openMetricEdit('${row.id}')"
+      title="Edit this entry"
+      style="flex-shrink:0;width:30px;height:30px;border-radius:7px;border:1px solid #27272a;background:#1c1c1f;color:#52525b;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;line-height:1;"
+      onmouseover="this.style.borderColor='#f97316';this.style.color='#f97316';this.style.background='rgba(249,115,22,0.08)'"
+      onmouseout="this.style.borderColor='#27272a';this.style.color='#52525b';this.style.background='#1c1c1f'">
+      ✎
+    </button>` : ''
 
   return `
-    <a href="profile.html?id=${row.athlete_id}" style="text-decoration:none;">
-      <div class="board-row ${isTop ? 'top-row' : ''}" style="cursor:pointer;">
-        <div class="rank-badge rank-${rank <= 3 ? rank : 'other'}">${medal}</div>
-        <div class="avatar">${init}</div>
-        <div style="flex:1;min-width:0;">
-          <div class="athlete-name">${name}</div>
-          <div class="athlete-sessions">
-            ${row._subtitle ? row._subtitle + '  ·  ' : ''}${sessions} sessions
+    <div style="display:flex;align-items:center;gap:8px;">
+      <a href="profile.html?id=${row.athlete_id}" style="text-decoration:none;flex:1;min-width:0;">
+        <div class="board-row ${isTop ? 'top-row' : ''}" style="cursor:pointer;">
+          <div class="rank-badge rank-${rank <= 3 ? rank : 'other'}">${medal}</div>
+          <div class="avatar">${init}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="athlete-name">${name}</div>
+            <div class="athlete-sessions">
+              ${row._subtitle ? row._subtitle + '  ·  ' : ''}${sessions} sessions
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="metric-value" style="${isTop ? 'color:#f97316;' : ''}">${row.value}</div>
+            <div class="metric-unit">${tab.unit}</div>
+          </div>
+          <div style="text-align:right;min-width:80px;">
+            <div style="font-size:12px;color:#71717a;">${fmtDate(row.recorded_date)}</div>
           </div>
         </div>
-        <div style="text-align:right;">
-          <div class="metric-value" style="${isTop ? 'color:#f97316;' : ''}">${row.value}</div>
-          <div class="metric-unit">${tab.unit}</div>
-        </div>
-        <div style="text-align:right;min-width:80px;">
-          <div style="font-size:12px;color:#71717a;">${fmtDate(row.recorded_date)}</div>
-        </div>
-      </div>
-    </a>
+      </a>
+      ${editBtn}
+    </div>
   `
 }
 
