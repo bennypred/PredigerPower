@@ -506,7 +506,7 @@ function renderAttCell(day) {
       bg = 'rgba(249,115,22,0.1)'; border = 'rgba(249,115,22,0.5)'; numColor = '#f97316'; break
   }
 
-  const canView = isTrainer(_profileUser) && day.inMonth && day.status !== 'future'
+  const canView = isTrainer(_profileUser) && day.inMonth && day.status !== 'future' && day.status !== 'no-workout'
   const isOpen  = _openDayLogDate === day.dateStr
 
   return `<div
