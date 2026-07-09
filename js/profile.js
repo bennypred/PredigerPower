@@ -794,15 +794,18 @@ function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}, sle
                       ${exNotes}
                     </div>
                   </div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
                     <div style="background:#18181b;border-radius:8px;padding:10px 12px;">
-                      <div style="font-size:10px;font-weight:600;color:#52525b;margin-bottom:4px;">SETS COMPLETED</div>
+                      <div style="font-size:10px;font-weight:600;color:#52525b;margin-bottom:4px;">SETS</div>
                       <div style="font-size:22px;font-weight:800;color:white;">${log.actual_sets ?? '—'}</div>
                     </div>
                     <div style="background:#18181b;border-radius:8px;padding:10px 12px;">
-                      <div style="font-size:10px;font-weight:600;color:#52525b;margin-bottom:4px;">BEST SET</div>
+                      <div style="font-size:10px;font-weight:600;color:#52525b;margin-bottom:4px;">TOTAL REPS</div>
+                      <div style="font-size:22px;font-weight:800;color:white;">${log.actual_reps ?? '—'}</div>
+                    </div>
+                    <div style="background:#18181b;border-radius:8px;padding:10px 12px;">
+                      <div style="font-size:10px;font-weight:600;color:#52525b;margin-bottom:4px;">BEST WEIGHT</div>
                       <div style="font-size:20px;font-weight:800;color:#f97316;">${log.actual_weight ? log.actual_weight + ' lbs' : '—'}</div>
-                      <div style="font-size:12px;color:#71717a;margin-top:1px;">${log.actual_reps ? '× ' + log.actual_reps + ' reps' : ''}</div>
                     </div>
                   </div>
                   ${log.notes ? `<div style="margin-top:10px;font-size:12px;color:#a1a1aa;border-top:1px solid #1c1c1f;padding-top:10px;">${escapeHtml(log.notes)}</div>` : ''}
