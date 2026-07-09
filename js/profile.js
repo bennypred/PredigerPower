@@ -709,23 +709,15 @@ function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}, sle
         ;(log.sets || []).forEach(s => {
           const w = parseFloat(s.weight) || 0
           const r = parseInt(s.reps)     || 0
-          totalVolume += w * r
-          if (w || r) totalSets++
-        })
-      } else if (Array.isArray(log.sets_data) && log.sets_data.length) {
-        log.sets_data.forEach(s => {
-          const w = parseFloat(s.weight) || 0
-          const r = parseInt(s.reps)     || 0
-          totalVolume += w * r
+          if (w && r) totalVolume += w * r
           if (w || r) totalSets++
         })
       } else {
-        // Legacy rows: estimate from best-set summary × set count
         const w = parseFloat(log.actual_weight) || 0
         const r = parseInt(log.actual_reps)     || 0
-        const n = parseInt(log.actual_sets)      || 1
-        totalVolume += w * r * n
-        totalSets   += n
+        const n = parseInt(log.actual_sets)     || 1
+        if (w && r) totalVolume += w * r * n
+        totalSets += n
       }
     })
 
