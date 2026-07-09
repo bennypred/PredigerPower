@@ -122,20 +122,16 @@ async function prefetchAthleteWorkouts(athlete) {
     weekWorkouts = (data || []).map(w => ({ ...w, exercises: w.exercises || [] }))
   }
 
-  // The RPC already filters to only this athlete's workouts — just index by date.
-  // For demo mode, re-apply the priority filter.
+  // Index workouts by date with priority: individual > group > all-athletes.
+  // In live mode the RPC already returns rows in priority order, so first match wins.
+  // In demo mode we apply the priority explicitly.
   const byDate = {}
   allDates.forEach(date => {
-    if (DEMO_MODE) {
-      byDate[date] = weekWorkouts.find(w =>
-        w.scheduled_date === date &&
-        (w.athlete_id === athlete.id ||
-         (w.group_id && userGroupIds.includes(w.group_id)) ||
-         (!w.athlete_id && !w.group_id))
-      ) || null
-    } else {
-      byDate[date] = weekWorkouts.find(w => w.scheduled_date === date) || null
-    }
+    const forDate = weekWorkouts.filter(w => w.scheduled_date === date)
+    byDate[date] = forDate.find(w => w.athlete_id === athlete.id)
+                || forDate.find(w => w.group_id && userGroupIds.includes(w.group_id))
+                || forDate.find(w => !w.athlete_id && !w.group_id)
+                || null
   })
   return byDate
 }
