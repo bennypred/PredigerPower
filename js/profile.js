@@ -466,9 +466,10 @@ function renderAttendanceSection(attendance) {
       <!-- Legend -->
       <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;">
         ${[
-          ['rgba(34,197,94,0.18)','#22c55e', 'Present'],
-          ['rgba(239,68,68,0.12)','rgba(239,68,68,0.6)', isTrainer(_profileUser) ? 'Absent — click to view log' : 'Absent'],
-          ['rgba(249,115,22,0.12)','rgba(249,115,22,0.5)', isTrainer(_profileUser) ? 'Today — click to view log' : 'Today'],
+          ['rgba(34,197,94,0.15)','#22c55e', isTrainer(_profileUser) ? 'Present — click to view' : 'Present'],
+          ['rgba(239,68,68,0.1)','rgba(239,68,68,0.5)', isTrainer(_profileUser) ? 'Missed workout — click to view' : 'Missed workout'],
+          ['#111113','#1c1c1f', 'No workout scheduled'],
+          ['rgba(249,115,22,0.1)','rgba(249,115,22,0.5)', isTrainer(_profileUser) ? 'Today — click to view' : 'Today'],
           ['#111113','#27272a','Upcoming'],
         ].map(([bg, border, label]) =>
           `<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#71717a;">
