@@ -8,6 +8,7 @@ let _configOpen     = false
 let _allMetrics     = null
 let _allLiftLogs    = []
 let _sessionCounts  = {}   // athlete_id → distinct training days (from lift logs)
+let _profileMap     = {}   // athlete_id → { full_name, gender } — loaded via security definer RPC
 
 // Available metric options
 const METRIC_OPTIONS = [
