@@ -635,7 +635,7 @@ async function openDayLog(dateStr) {
     const [logsRes, metricsRes, foodRes, sleepRes] = await Promise.all([
       window._supabase
         .from('workout_logs')
-        .select('actual_sets, actual_reps, actual_weight, notes, sets_data, exercise:exercises!exercise_id(name, sets, reps, target_weight, notes, order_index)')
+        .select('actual_sets, actual_reps, actual_weight, notes, exercise:exercises!exercise_id(name, sets, reps, target_weight, notes, order_index)')
         .eq('athlete_id', _athleteId)
         .eq('logged_date', dateStr),
       window._supabase
