@@ -50,12 +50,18 @@ function buildTabs(config) {
 async function initPage(user) {
   _lbUser = user
 
-  // Fetch all athlete names via security definer RPC — works for code-login
-  // athletes who have no Supabase auth session and can't join profiles directly.
+  // Fetch all athlete names and groups via security definer RPCs —
+  // both work for code-login athletes who have no Supabase auth session.
   if (!DEMO_MODE && window._supabase) {
-    const { data: profiles } = await window._supabase.rpc('get_public_athlete_profiles')
-    if (profiles) profiles.forEach(p => { _profileMap[p.id] = p })
+    const [profilesRes, groupsRes] = await Promise.all([
+      window._supabase.rpc('get_public_athlete_profiles'),
+      window._supabase.rpc('get_public_groups'),
+    ])
+    if (profilesRes.data) profilesRes.data.forEach(p => { _profileMap[p.id] = p })
+    _groups = groupsRes.data || []
   }
+  // Fall back to localStorage if RPC unavailable
+  if (!_groups.length) _groups = lsGet('p3_athlete_groups') || []
 
   _allMetrics  = await getMetrics()
   _allLiftLogs = await getLiftLogs()
