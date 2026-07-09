@@ -926,19 +926,20 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
       const logRows = exes.map(ex => {
         const sets   = logs[ex.id]?.sets || []
         const logged = sets.filter(s => s.weight || s.reps)
-        let bestWeight = 0, bestReps = 0
+        let bestWeight = 0, totalReps = 0
         logged.forEach(s => {
           const w = parseFloat(s.weight) || 0
           const r = parseInt(s.reps)     || 0
-          if (w > bestWeight) { bestWeight = w; bestReps = r }
+          if (w > bestWeight) bestWeight = w
+          totalReps += r
         })
         return {
           exercise_id:   ex.id,
           athlete_id:    user.id,
           logged_date:   date,
-          actual_sets:   logged.length   || null,
-          actual_reps:   bestReps        || null,
-          actual_weight: bestWeight      || null,
+          actual_sets:   logged.length  || null,
+          actual_reps:   totalReps      || null,
+          actual_weight: bestWeight     || null,
           notes:         logs[ex.id]?.notes || null,
           sets_data:     sets.length ? sets : null,
         }
