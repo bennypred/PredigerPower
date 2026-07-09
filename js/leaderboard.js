@@ -9,6 +9,8 @@ let _allMetrics     = null
 let _allLiftLogs    = []
 let _sessionCounts  = {}   // athlete_id → distinct training days (from lift logs)
 let _profileMap     = {}   // athlete_id → { full_name, gender } — loaded via security definer RPC
+let _groups         = []   // all athlete groups from Supabase
+let _activeGroup    = 'all' // 'all' or a group id string
 
 // Available metric options
 const METRIC_OPTIONS = [
