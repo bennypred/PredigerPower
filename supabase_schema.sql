@@ -95,6 +95,21 @@ create table if not exists attendance_overrides (
 );
 create index if not exists attendance_overrides_athlete_idx on attendance_overrides(athlete_id);
 
+-- ── Manual lift entries ───────────────────────────────────────
+-- Trainer-entered lift attempts not tied to a specific programmed
+-- workout exercise. Merged with workout_logs in the app's lift history.
+create table if not exists manual_lift_entries (
+  id             uuid default uuid_generate_v4() primary key,
+  athlete_id     uuid references profiles(id) on delete cascade not null,
+  exercise_name  text not null,
+  logged_date    date not null default current_date,
+  weight         numeric not null,
+  reps           integer not null default 1,
+  created_at     timestamptz default now(),
+  unique (athlete_id, exercise_name, logged_date)
+);
+create index if not exists manual_lift_entries_athlete_idx on manual_lift_entries(athlete_id);
+
 -- ── Messages ──────────────────────────────────────────────────
 create table if not exists messages (
   id            uuid default uuid_generate_v4() primary key,
@@ -116,6 +131,7 @@ alter table workout_logs        enable row level security;
 alter table performance_metrics enable row level security;
 alter table messages            enable row level security;
 alter table attendance_overrides enable row level security;
+alter table manual_lift_entries enable row level security;
 
 -- Helper: get current user's role
 create or replace function current_role_p3()
@@ -169,6 +185,14 @@ create policy "trainers manage attendance overrides" on attendance_overrides for
   with check (current_role_p3() = 'trainer');
 
 create policy "athletes view own attendance overrides" on attendance_overrides for select
+  using (athlete_id = auth.uid());
+
+-- ── Manual lift entry policies ──────────────────────────────────
+create policy "trainers manage manual lift entries" on manual_lift_entries for all
+  using (current_role_p3() = 'trainer')
+  with check (current_role_p3() = 'trainer');
+
+create policy "athletes view own manual lift entries" on manual_lift_entries for select
   using (athlete_id = auth.uid());
 
 -- ── Messages policies ─────────────────────────────────────────

@@ -19,7 +19,8 @@ let _hiddenLiftNames  = new Set()  // exercise names deleted from this athlete's
 let _hiddenMetricKeys = new Set()  // metric keys deleted from this athlete's Performance Metrics
 let _liftManageOpen   = false      // manage panel state for Lift section
 let _metricManageOpen = false      // manage panel state for Metrics section
-let _metricEntryOpen  = false      // admin "Log Entry" form open state
+let _metricEntryOpen  = false      // admin "Log Entry" form open state (metrics)
+let _liftEntryOpen    = false      // admin "Log Entry" form open state (lifts)
 let _cachedAttendance = []         // cached once on load; used by month-nav
 let _openDayLogDate   = null       // date string of the currently-open day-log panel
 
@@ -100,19 +101,33 @@ async function getLiftHistory(athleteId) {
       .map(e => ({ ...e, athlete_id: athleteId }))
     return [...base, ...local]
   }
-  const { data } = await window._supabase
-    .from('workout_logs')
-    .select('logged_date, actual_weight, actual_reps, exercise:exercises!exercise_id(name)')
-    .eq('athlete_id', athleteId)
-    .not('actual_weight', 'is', null)
-    .order('logged_date', { ascending: true })
-  return (data || []).map(r => ({
+  const [logsRes, manualRes] = await Promise.all([
+    window._supabase
+      .from('workout_logs')
+      .select('logged_date, actual_weight, actual_reps, exercise:exercises!exercise_id(name)')
+      .eq('athlete_id', athleteId)
+      .not('actual_weight', 'is', null)
+      .order('logged_date', { ascending: true }),
+    window._supabase
+      .from('manual_lift_entries')
+      .select('exercise_name, logged_date, weight, reps')
+      .eq('athlete_id', athleteId),
+  ])
+  const fromLogs = (logsRes.data || []).map(r => ({
     athlete_id:    athleteId,
     exercise_name: r.exercise?.name || '',
     date:          r.logged_date,
     weight:        r.actual_weight,
     reps:          r.actual_reps || 1,
   }))
+  const fromManual = (manualRes.data || []).map(r => ({
+    athlete_id:    athleteId,
+    exercise_name: r.exercise_name,
+    date:          r.logged_date,
+    weight:        r.weight,
+    reps:          r.reps || 1,
+  }))
+  return [...fromLogs, ...fromManual]
 }
 
 async function getMetricHistory(athleteId) {
@@ -1115,11 +1130,15 @@ function renderLiftSection(lifts) {
     const manageBtn = isAdmin && lifts.length
       ? `<button onclick="toggleLiftManage()" title="Delete lifts from profile" style="background:#1c1c1f;border:1px solid #2a2a2f;border-radius:8px;padding:6px 10px;font-size:12px;color:#52525b;cursor:pointer;" onmouseover="this.style.color='#a1a1aa'" onmouseout="this.style.color='#52525b'">✎</button>`
       : ''
+    const logBtn = isAdmin
+      ? `<button onclick="toggleLiftEntryForm()" style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);color:#f97316;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">${_liftEntryOpen ? '✕ Cancel' : '＋ Log Entry'}</button>`
+      : ''
     headerControls = `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <div style="font-size:11px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;">Lift Progress · Est. 1RM</div>
-        <div style="display:flex;gap:6px;align-items:center;">${dropdown}${manageBtn}</div>
-      </div>`
+        <div style="display:flex;gap:6px;align-items:center;">${dropdown}${manageBtn}${logBtn}</div>
+      </div>
+      ${isAdmin && _liftEntryOpen ? renderLiftEntryPanel(lifts) : ''}`
   }
 
   const chips = shown.map(name => {
@@ -1156,6 +1175,77 @@ function renderLiftSection(lifts) {
     ${headerControls}
     ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">${chips}</div>` : ''}
     ${shownLifts.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;">${boxes}</div>` : ''}`
+}
+
+function toggleLiftEntryForm() {
+  _liftEntryOpen = !_liftEntryOpen
+  document.getElementById('lifts-section').innerHTML = renderLiftSection(_allLifts)
+}
+
+function renderLiftEntryPanel(lifts) {
+  return `
+    <div style="background:#111113;border:1px solid rgba(249,115,22,0.25);border-radius:10px;padding:14px;margin-bottom:12px;">
+      <div style="margin-bottom:10px;">
+        <label class="form-label" style="font-size:11px;">Lift</label>
+        <select id="lift-entry-name" class="form-select" onchange="document.getElementById('lift-entry-custom-wrap').style.display=this.value==='__custom__'?'block':'none'">
+          ${lifts.map(l => `<option value="${l.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">${l.name}</option>`).join('')}
+          <option value="__custom__">＋ New lift…</option>
+        </select>
+        <div id="lift-entry-custom-wrap" style="display:${lifts.length ? 'none' : 'block'};margin-top:6px;">
+          <input type="text" id="lift-entry-custom-name" class="form-input" placeholder="New lift name">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div>
+          <label class="form-label" style="font-size:11px;">Date</label>
+          <input type="date" id="lift-entry-date" class="form-input" value="${TODAY}" max="${TODAY}">
+        </div>
+        <div>
+          <label class="form-label" style="font-size:11px;">Weight (lbs)</label>
+          <input type="number" id="lift-entry-weight" class="form-input" step="2.5" placeholder="e.g. 225">
+        </div>
+        <div>
+          <label class="form-label" style="font-size:11px;">Reps</label>
+          <input type="number" id="lift-entry-reps" class="form-input" step="1" min="1" placeholder="e.g. 5">
+        </div>
+      </div>
+      <button onclick="saveLiftEntry()" class="btn-primary" style="width:100%;padding:10px;font-size:13px;">Save Entry</button>
+    </div>`
+}
+
+async function saveLiftEntry() {
+  const nameSel  = document.getElementById('lift-entry-name').value
+  const custom   = document.getElementById('lift-entry-custom-name')?.value.trim()
+  const date     = document.getElementById('lift-entry-date').value
+  const weight   = parseFloat(document.getElementById('lift-entry-weight').value)
+  const reps     = parseInt(document.getElementById('lift-entry-reps').value) || 1
+
+  const exerciseName = nameSel === '__custom__' ? custom : nameSel
+  if (!exerciseName || !date || isNaN(weight)) {
+    showToast('Fill in lift, date, and weight.', 'error')
+    return
+  }
+
+  if (DEMO_MODE) {
+    const liftLog = lsGet(`p3_lift_log_${_athleteId}`) || []
+    liftLog.push({ exercise_name: exerciseName, date, weight, reps })
+    lsSet(`p3_lift_log_${_athleteId}`, liftLog)
+  } else {
+    const { error } = await window._supabase.from('manual_lift_entries').upsert(
+      [{ athlete_id: _athleteId, exercise_name: exerciseName, logged_date: date, weight, reps }],
+      { onConflict: 'athlete_id,exercise_name,logged_date' }
+    )
+    if (error) { showToast('Error saving entry.', 'error'); return }
+  }
+
+  _liftHistory   = await getLiftHistory(_athleteId)
+  _liftEntryOpen = false
+  if (!_shownLiftNames.includes(exerciseName) && _shownLiftNames.length < 3) {
+    _shownLiftNames.push(exerciseName)
+    lsSet(`p3_profile_shown_lifts_${_athleteId}`, _shownLiftNames)
+  }
+  renderProfile(_profileUser, _athlete, getProfileConfig(_athleteId, _athlete), _liftHistory, _metricHist, _cachedAttendance)
+  showToast('Lift saved!', 'success')
 }
 
 function toggleMetricTab(key) {
