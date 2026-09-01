@@ -19,6 +19,7 @@ let _hiddenLiftNames  = new Set()  // exercise names deleted from this athlete's
 let _hiddenMetricKeys = new Set()  // metric keys deleted from this athlete's Performance Metrics
 let _liftManageOpen   = false      // manage panel state for Lift section
 let _metricManageOpen = false      // manage panel state for Metrics section
+let _metricEntryOpen  = false      // admin "Log Entry" form open state
 let _cachedAttendance = []         // cached once on load; used by month-nav
 let _openDayLogDate   = null       // date string of the currently-open day-log panel
 
@@ -183,27 +184,36 @@ async function getAttendance(athleteId) {
     return Array.from(map.values())
   }
 
-  // Fetch dates where the athlete actually logged something (= present)
-  // and dates where a workout was scheduled for them (to determine absent vs no-workout)
-  const [logsRes, scheduledDates] = await Promise.all([
+  // Fetch dates where the athlete actually logged something (= present),
+  // dates where a workout was scheduled for them (to determine absent vs no-workout),
+  // and any manual trainer overrides (which take precedence over the derived status).
+  const [logsRes, scheduledDates, overridesRes] = await Promise.all([
     window._supabase.from('workout_logs').select('logged_date').eq('athlete_id', athleteId),
     getScheduledDates(athleteId),
+    window._supabase.from('attendance_overrides').select('date, status').eq('athlete_id', athleteId),
   ])
 
   const presentDates = new Set((logsRes.data || []).map(r => r.logged_date))
-  const records = []
+  const map = new Map()
 
   // Present: athlete logged on this date
   presentDates.forEach(date => {
-    records.push({ athlete_id: athleteId, date, status: 'present' })
+    map.set(date, { athlete_id: athleteId, date, status: 'present' })
   })
 
   // Absent: workout was scheduled but nothing logged (past dates only)
   scheduledDates.forEach(date => {
     if (!presentDates.has(date) && date < TODAY) {
-      records.push({ athlete_id: athleteId, date, status: 'absent' })
+      map.set(date, { athlete_id: athleteId, date, status: 'absent' })
     }
   })
+
+  // Manual overrides win over the derived status
+  ;(overridesRes.data || []).forEach(r => {
+    map.set(r.date, { athlete_id: athleteId, date: r.date, status: r.status })
+  })
+
+  const records = Array.from(map.values())
 
   return records
 }
@@ -627,12 +637,9 @@ async function openDayLog(dateStr) {
       .filter(([, d]) => d?.value != null)
       .map(([key, d]) => ({ metric_type: key, value: d.value, unit: d.unit }))
 
-    const foodEntry  = lsGet(`p3_food_${_athleteId}_${dateStr}`)  || {}
-    const sleepEntry = lsGet(`p3_sleep_${_athleteId}_${dateStr}`) || {}
-
-    renderDayLogContent(dateLabel, logs, metrics, 'demo', foodEntry, sleepEntry)
+    renderDayLogContent(dateLabel, logs, metrics, 'demo', dateStr)
   } else {
-    const [logsRes, metricsRes, foodRes, sleepRes] = await Promise.all([
+    const [logsRes, metricsRes] = await Promise.all([
       window._supabase
         .from('workout_logs')
         .select('actual_sets, actual_reps, actual_weight, notes, exercise:exercises!exercise_id(name, sets, reps, target_weight, notes, order_index)')
@@ -643,32 +650,20 @@ async function openDayLog(dateStr) {
         .select('metric_type, value, unit')
         .eq('athlete_id', _athleteId)
         .eq('recorded_date', dateStr),
-      window._supabase
-        .from('food_logs')
-        .select('breakfast, lunch, dinner, snacks')
-        .eq('athlete_id', _athleteId)
-        .eq('log_date', dateStr)
-        .maybeSingle(),
-      window._supabase
-        .from('sleep_logs')
-        .select('sleep_time, wake_time, energy_level, notes')
-        .eq('athlete_id', _athleteId)
-        .eq('log_date', dateStr)
-        .maybeSingle(),
     ])
 
-    const logs       = (logsRes.data || []).sort((a, b) => (a.exercise?.order_index || 0) - (b.exercise?.order_index || 0))
-    const metrics    = metricsRes.data || []
-    const foodEntry  = foodRes.data   || {}
-    const sleepEntry = sleepRes.data  || {}
+    const logs    = (logsRes.data || []).sort((a, b) => (a.exercise?.order_index || 0) - (b.exercise?.order_index || 0))
+    const metrics = metricsRes.data || []
 
-    renderDayLogContent(dateLabel, logs, metrics, 'live', foodEntry, sleepEntry)
+    renderDayLogContent(dateLabel, logs, metrics, 'live', dateStr)
   }
 }
 
-function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}, sleepEntry = {}) {
+function renderDayLogContent(dateLabel, logs, metrics, mode, dateStr) {
   const content = document.getElementById('day-log-content')
   if (!content) return
+
+  const currentStatus = _cachedAttendance.find(r => r.date === dateStr)?.status || null
 
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
@@ -678,6 +673,11 @@ function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}, sle
         style="background:none;border:none;color:#52525b;font-size:20px;cursor:pointer;padding:2px 8px;line-height:1;transition:color 0.15s;"
         onmouseover="this.style.color='white'" onmouseout="this.style.color='#52525b'">✕</button>
     </div>`
+
+  // Attendance override (trainer only)
+  if (isTrainer(_profileUser)) {
+    html += renderAttendanceControl(dateStr, currentStatus)
+  }
 
   // Metrics row
   if (metrics.length) {
@@ -818,94 +818,62 @@ function renderDayLogContent(dateLabel, logs, metrics, mode, foodEntry = {}, sle
     html += `<div style="text-align:center;color:#52525b;font-size:13px;padding:8px 0 16px;">No workout data recorded for this day.</div>`
   }
 
-  // Food log section (always shown so trainer can see what athlete ate)
-  const _profileMeals = [
-    { id: 'breakfast', label: 'Breakfast', icon: '🍳' },
-    { id: 'lunch',     label: 'Lunch',     icon: '🥗' },
-    { id: 'dinner',    label: 'Dinner',    icon: '🍽️' },
-    { id: 'snacks',    label: 'Snacks',    icon: '🍎' },
-  ]
-  const foodRows = _profileMeals.map(m => {
-    const text = foodEntry[m.id]
-    if (!text || !text.trim()) return ''
-    return `
-      <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;">
-        <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:4px;">${m.icon} ${m.label.toUpperCase()}</div>
-        <div style="font-size:13px;color:white;line-height:1.5;white-space:pre-wrap;">${escapeHtml(text)}</div>
-      </div>`
-  }).filter(Boolean)
-
-  const hasFoodEntry = foodRows.length > 0
-  html += `
-    <div style="margin-top:20px;padding-top:20px;border-top:1px solid #27272a;">
-      <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Food Log</div>
-      ${hasFoodEntry
-        ? `<div style="display:flex;flex-direction:column;gap:8px;">${foodRows.join('')}</div>`
-        : `<div style="color:#3f3f46;font-size:13px;">Nothing logged for this day.</div>`
-      }
-    </div>`
-
-  // Sleep log section
-  const hasSleep = sleepEntry.sleep_time || sleepEntry.wake_time || sleepEntry.energy_level || sleepEntry.notes
-  const fmtTime = t => {
-    if (!t) return '—'
-    const [h, m] = t.split(':')
-    const hr = parseInt(h)
-    const ampm = hr >= 12 ? 'PM' : 'AM'
-    return `${hr % 12 || 12}:${m} ${ampm}`
-  }
-  const energyColor = e => e <= 3 ? '#ef4444' : e <= 6 ? '#eab308' : '#22c55e'
-
-  let sleepHTML = ''
-  if (hasSleep) {
-    let durationHTML = ''
-    if (sleepEntry.sleep_time && sleepEntry.wake_time) {
-      const [sh, sm] = sleepEntry.sleep_time.split(':').map(Number)
-      const [wh, wm] = sleepEntry.wake_time.split(':').map(Number)
-      let mins = (wh * 60 + wm) - (sh * 60 + sm)
-      if (mins < 0) mins += 24 * 60
-      durationHTML = `<div style="font-size:11px;color:#71717a;margin-top:4px;">${Math.floor(mins/60)}h ${mins%60}m total</div>`
-    }
-
-    sleepHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-        <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;">
-          <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:4px;">🌙 SLEEP TIME</div>
-          <div style="font-size:18px;font-weight:800;color:${sleepEntry.sleep_time ? '#a855f7' : '#3f3f46'};">${fmtTime(sleepEntry.sleep_time)}</div>
-          ${durationHTML}
-        </div>
-        <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;">
-          <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:4px;">☀️ WAKE TIME</div>
-          <div style="font-size:18px;font-weight:800;color:${sleepEntry.wake_time ? '#f97316' : '#3f3f46'};">${fmtTime(sleepEntry.wake_time)}</div>
-        </div>
-      </div>
-      ${sleepEntry.energy_level ? `
-      <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;margin-bottom:8px;">
-        <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:8px;">⚡ ENERGY LEVEL ON WAKE</div>
-        <div style="display:flex;gap:4px;">
-          ${[1,2,3,4,5,6,7,8,9,10].map(n => {
-            const c = energyColor(n)
-            const active = n === sleepEntry.energy_level
-            return `<div style="flex:1;padding:6px 2px;border-radius:6px;font-size:12px;font-weight:800;text-align:center;
-              background:${active ? c + '22' : '#18181b'};border:2px solid ${active ? c : '#27272a'};
-              color:${active ? c : '#3f3f46'};">${n}</div>`
-          }).join('')}
-        </div>
-      </div>` : ''}
-      ${sleepEntry.notes ? `
-      <div style="background:#111113;border:1px solid #27272a;border-radius:8px;padding:10px 14px;">
-        <div style="font-size:10px;font-weight:700;color:#52525b;margin-bottom:4px;">📝 NOTES</div>
-        <div style="font-size:13px;color:white;line-height:1.5;white-space:pre-wrap;">${escapeHtml(sleepEntry.notes)}</div>
-      </div>` : ''}`
-  }
-
-  html += `
-    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #27272a;">
-      <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Sleep Log</div>
-      ${hasSleep ? sleepHTML : `<div style="color:#3f3f46;font-size:13px;">Nothing logged for this day.</div>`}
-    </div>`
-
   content.innerHTML = html
+}
+
+function renderAttendanceControl(dateStr, currentStatus) {
+  const opts = [
+    { id: 'present', label: 'Present', color: '#22c55e' },
+    { id: 'absent',  label: 'Absent',  color: '#ef4444' },
+  ]
+  return `
+    <div style="margin-bottom:18px;">
+      <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Attendance</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${opts.map(o => `
+          <button onclick="setAttendanceOverride('${dateStr}','${o.id}')"
+            style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
+              background:${currentStatus === o.id ? o.color + '22' : '#1c1c1f'};
+              border:1px solid ${currentStatus === o.id ? o.color : '#27272a'};
+              color:${currentStatus === o.id ? o.color : '#a1a1aa'};">
+            ${o.label}
+          </button>`).join('')}
+        ${currentStatus ? `
+          <button onclick="setAttendanceOverride('${dateStr}',null)"
+            style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:none;border:1px solid #27272a;color:#52525b;">
+            Clear
+          </button>` : ''}
+      </div>
+    </div>`
+}
+
+async function setAttendanceOverride(dateStr, status) {
+  if (DEMO_MODE) {
+    const existing = lsGet('p3_attendance') || []
+    const idx = existing.findIndex(r => r.athlete_id === _athleteId && r.date === dateStr)
+    if (status === null) {
+      if (idx >= 0) existing.splice(idx, 1)
+    } else if (idx >= 0) {
+      existing[idx].status = status
+    } else {
+      existing.push({ athlete_id: _athleteId, date: dateStr, status })
+    }
+    lsSet('p3_attendance', existing)
+  } else if (status === null) {
+    await window._supabase.from('attendance_overrides').delete()
+      .eq('athlete_id', _athleteId).eq('date', dateStr)
+  } else {
+    await window._supabase.from('attendance_overrides').upsert(
+      [{ athlete_id: _athleteId, date: dateStr, status }],
+      { onConflict: 'athlete_id,date' }
+    )
+  }
+
+  _cachedAttendance = await getAttendance(_athleteId)
+  _openDayLogDate    = null
+  document.getElementById('attendance-section').innerHTML = renderAttendanceSection(_cachedAttendance)
+  openDayLog(dateStr)
+  showToast('Attendance updated', 'success')
 }
 
 function statBox(label, value, unit, color) {
@@ -983,11 +951,15 @@ function renderMetricsSection(metricIds) {
     const manageBtn = isAdmin && allAvail.length
       ? `<button onclick="toggleMetricManage()" title="Delete metrics from profile" style="background:#1c1c1f;border:1px solid #2a2a2f;border-radius:8px;padding:6px 10px;font-size:12px;color:#52525b;cursor:pointer;" onmouseover="this.style.color='#a1a1aa'" onmouseout="this.style.color='#52525b'">✎</button>`
       : ''
+    const logBtn = isAdmin
+      ? `<button onclick="toggleMetricEntryForm()" style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);color:#f97316;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">${_metricEntryOpen ? '✕ Cancel' : '＋ Log Entry'}</button>`
+      : ''
     headerControls = `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <div style="font-size:11px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em;">Performance Metrics</div>
-        <div style="display:flex;gap:6px;align-items:center;">${dropdown}${manageBtn}</div>
-      </div>`
+        <div style="display:flex;gap:6px;align-items:center;">${dropdown}${manageBtn}${logBtn}</div>
+      </div>
+      ${isAdmin && _metricEntryOpen ? renderMetricEntryPanel(allAvail) : ''}`
   }
 
   const chips = shown.map(key => {
@@ -1025,6 +997,81 @@ function renderMetricsSection(metricIds) {
     ${headerControls}
     ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">${chips}</div>` : ''}
     ${shown.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;">${boxes}</div>` : ''}`
+}
+
+function toggleMetricEntryForm() {
+  _metricEntryOpen = !_metricEntryOpen
+  document.getElementById('metrics-section').innerHTML = renderMetricsSection(getProfileConfig(_athleteId, _athlete).metrics)
+}
+
+function renderMetricEntryPanel(allAvail) {
+  const options = [
+    ...Object.entries(METRIC_META).map(([id, m]) => ({ id, label: m.label, unit: m.unit })),
+    ...allAvail.filter(m => !METRIC_META[m.id]).map(m => ({ id: m.id, label: m.label, unit: 'lbs' })),
+  ]
+  const seen = new Set()
+  const deduped = options.filter(o => seen.has(o.id) ? false : (seen.add(o.id), true))
+
+  return `
+    <div style="background:#111113;border:1px solid rgba(249,115,22,0.25);border-radius:10px;padding:14px;margin-bottom:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label class="form-label" style="font-size:11px;">Metric</label>
+          <select id="metric-entry-type" class="form-select" onchange="document.getElementById('metric-entry-custom-wrap').style.display=this.value==='__custom__'?'block':'none'">
+            ${deduped.map(o => `<option value="${o.id}">${o.label}</option>`).join('')}
+            <option value="__custom__">＋ New metric type…</option>
+          </select>
+          <div id="metric-entry-custom-wrap" style="display:none;margin-top:6px;">
+            <input type="text" id="metric-entry-custom-name" class="form-input" placeholder="New metric name">
+          </div>
+        </div>
+        <div>
+          <label class="form-label" style="font-size:11px;">Date</label>
+          <input type="date" id="metric-entry-date" class="form-input" value="${TODAY}" max="${TODAY}">
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label class="form-label" style="font-size:11px;">Value</label>
+        <input type="number" id="metric-entry-value" class="form-input" step="0.01" placeholder="e.g. 32.5">
+      </div>
+      <button onclick="saveMetricEntry()" class="btn-primary" style="width:100%;padding:10px;font-size:13px;">Save Entry</button>
+    </div>`
+}
+
+async function saveMetricEntry() {
+  const typeSel  = document.getElementById('metric-entry-type').value
+  const custom   = document.getElementById('metric-entry-custom-name')?.value.trim()
+  const date     = document.getElementById('metric-entry-date').value
+  const rawValue = document.getElementById('metric-entry-value').value
+
+  const metricType = typeSel === '__custom__' ? custom : typeSel
+  const value       = parseFloat(rawValue)
+  if (!metricType || !date || isNaN(value)) {
+    showToast('Fill in metric, date, and value.', 'error')
+    return
+  }
+  const unit = METRIC_META[metricType]?.unit || 'lbs'
+
+  if (DEMO_MODE) {
+    const dayMetrics = lsGet(`p3_metrics_${_athleteId}_${date}`) || {}
+    dayMetrics[metricType] = { value, unit }
+    lsSet(`p3_metrics_${_athleteId}_${date}`, dayMetrics)
+  } else {
+    const { error } = await window._supabase.from('performance_metrics').upsert(
+      [{ athlete_id: _athleteId, metric_type: metricType, value, unit, recorded_date: date }],
+      { onConflict: 'athlete_id,metric_type,recorded_date' }
+    )
+    if (error) { showToast('Error saving entry.', 'error'); return }
+  }
+
+  _metricHist = await getMetricHistory(_athleteId)
+  if (!_shownMetricKeys.includes(metricType) && _shownMetricKeys.length < 3) {
+    _shownMetricKeys.push(metricType)
+    lsSet(`p3_profile_shown_metrics_${_athleteId}`, _shownMetricKeys)
+  }
+  _metricEntryOpen = false
+  document.getElementById('metrics-section').innerHTML = renderMetricsSection(getProfileConfig(_athleteId, _athlete).metrics)
+  showToast('Metric saved!', 'success')
 }
 
 function renderLiftSection(lifts) {

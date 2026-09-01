@@ -82,6 +82,19 @@ create table if not exists performance_metrics (
 create index if not exists metrics_athlete_idx on performance_metrics(athlete_id);
 create index if not exists metrics_type_idx    on performance_metrics(metric_type);
 
+-- ── Attendance overrides ────────────────────────────────────────
+-- Manual present/absent corrections set by a trainer. These take
+-- precedence over the attendance status derived from workout_logs.
+create table if not exists attendance_overrides (
+  id          uuid default uuid_generate_v4() primary key,
+  athlete_id  uuid references profiles(id) on delete cascade not null,
+  date        date not null,
+  status      text not null check (status in ('present', 'absent')),
+  created_at  timestamptz default now(),
+  unique (athlete_id, date)
+);
+create index if not exists attendance_overrides_athlete_idx on attendance_overrides(athlete_id);
+
 -- ── Messages ──────────────────────────────────────────────────
 create table if not exists messages (
   id            uuid default uuid_generate_v4() primary key,
@@ -102,6 +115,7 @@ alter table exercises           enable row level security;
 alter table workout_logs        enable row level security;
 alter table performance_metrics enable row level security;
 alter table messages            enable row level security;
+alter table attendance_overrides enable row level security;
 
 -- Helper: get current user's role
 create or replace function current_role_p3()
@@ -148,6 +162,14 @@ create policy "athletes manage own logs" on workout_logs for all
 create policy "athletes manage own metrics" on performance_metrics for all
   using (athlete_id = auth.uid() or current_role_p3() = 'trainer')
   with check (athlete_id = auth.uid() or current_role_p3() = 'trainer');
+
+-- ── Attendance override policies ───────────────────────────────
+create policy "trainers manage attendance overrides" on attendance_overrides for all
+  using (current_role_p3() = 'trainer')
+  with check (current_role_p3() = 'trainer');
+
+create policy "athletes view own attendance overrides" on attendance_overrides for select
+  using (athlete_id = auth.uid());
 
 -- ── Messages policies ─────────────────────────────────────────
 create policy "view messages" on messages for select

@@ -228,8 +228,11 @@ function getWorkoutForDate(athleteId, date) {
   return candidates[0] || null
 }
 
-function switchViewingTarget(val) {
+async function switchViewingTarget(val) {
   _viewingTarget = val || null
+  if (_viewingTarget && !_viewingTarget.startsWith('group:')) {
+    await prefetchSavedLogs(_viewingTarget, _selectedDate)
+  }
   document.getElementById('day-content').innerHTML =
     renderDayContent(_dashUser, _selectedDate)
 }
@@ -445,6 +448,13 @@ function renderDayContent(user, date) {
         </div>
       </div>
       ${workout ? renderWorkoutSection(workout, exercises, savedLogs, prevLogs, _viewingTarget) : renderRestDay()}
+      ${workout ? `
+      <div style="margin-top:24px;display:flex;justify-content:flex-end;align-items:center;gap:14px;">
+        <span id="dash-save-status" style="font-size:12px;font-weight:600;color:#52525b;transition:color 0.2s;"></span>
+        <button onclick="saveLog('${workout.id}','${date}',false)" class="btn-primary" style="padding:13px 36px;font-size:15px;">
+          ${hasLog ? 'Update Log' : 'Save Log'}
+        </button>
+      </div>` : ''}
     `
   }
 
@@ -837,7 +847,9 @@ function setupDashAutoSave() {
 }
 
 async function saveLog(workoutId, date = TODAY, silent = false) {
-  const user = getSession()
+  const user     = getSession()
+  const targetId = (isTrainer(user) && _viewingTarget && !_viewingTarget.startsWith('group:'))
+    ? _viewingTarget : user.id
 
   const metrics = {}
   getMetricDefs(user).forEach(({ id, unit }) => {
@@ -864,11 +876,11 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
   })
 
   if (DEMO_MODE) {
-    lsSet(`p3_metrics_${user.id}_${date}`, metrics)
-    lsSet(`p3_logs_${user.id}_${date}`,    logs)
+    lsSet(`p3_metrics_${targetId}_${date}`, metrics)
+    lsSet(`p3_logs_${targetId}_${date}`,    logs)
 
     // Update per-exercise lift history (keyed by exercise name)
-    const history = lsGet(`p3_lift_history_${user.id}`) || {}
+    const history = lsGet(`p3_lift_history_${targetId}`) || {}
     exes.forEach(ex => {
       const sets = logs[ex.id]?.sets || []
       if (sets.some(s => s.weight)) {
@@ -879,10 +891,10 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
         }
       }
     })
-    lsSet(`p3_lift_history_${user.id}`, history)
+    lsSet(`p3_lift_history_${targetId}`, history)
 
     // Append best set per exercise to appropriate profile store based on track_as
-    const liftLog = lsGet(`p3_lift_log_${user.id}`) || []
+    const liftLog = lsGet(`p3_lift_log_${targetId}`) || []
     exes.forEach(ex => {
       const trackAs = ex.track_as || 'lift'  // default: lift (backward compat)
       if (trackAs === 'none') return         // explicitly untracked
@@ -899,16 +911,16 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
 
       if (trackAs === 'metric') {
         // Save as a performance metric (raw best value for that day)
-        const dayMetrics = lsGet(`p3_metrics_${user.id}_${date}`) || {}
+        const dayMetrics = lsGet(`p3_metrics_${targetId}_${date}`) || {}
         dayMetrics[ex.name] = { value: bestSet.weight, unit: 'lbs' }
-        lsSet(`p3_metrics_${user.id}_${date}`, dayMetrics)
+        lsSet(`p3_metrics_${targetId}_${date}`, dayMetrics)
       } else {
         liftLog.push({ exercise_name: ex.name, date, weight: bestSet.weight, reps: bestSet.reps })
       }
     })
-    lsSet(`p3_lift_log_${user.id}`, liftLog)
+    lsSet(`p3_lift_log_${targetId}`, liftLog)
 
-    markAttendance(user.id, date)
+    markAttendance(targetId, date)
     if (silent) dashSetStatus('saved'); else showToast('Log saved!', 'success')
     return
   }
@@ -918,7 +930,7 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
     if (Object.keys(metrics).length) {
       await window._supabase.from('performance_metrics').upsert(
         Object.entries(metrics).map(([type, m]) => ({
-          athlete_id: user.id, metric_type: type,
+          athlete_id: targetId, metric_type: type,
           value: m.value, unit: m.unit, recorded_date: date,
         })),
         { onConflict: 'athlete_id,metric_type,recorded_date' }
@@ -937,7 +949,7 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
         })
         return {
           exercise_id:   ex.id,
-          athlete_id:    user.id,
+          athlete_id:    targetId,
           logged_date:   date,
           actual_sets:   logged.length  || null,
           actual_reps:   totalReps      || null,
@@ -954,8 +966,8 @@ async function saveLog(workoutId, date = TODAY, silent = false) {
       }
     }
     // Cache full set data locally so the athlete can view it when switching days
-    lsSet(`p3_logs_${user.id}_${date}`, logs)
-    lsSet(`p3_metrics_${user.id}_${date}`, metrics)
+    lsSet(`p3_logs_${targetId}_${date}`, logs)
+    lsSet(`p3_metrics_${targetId}_${date}`, metrics)
     if (silent) dashSetStatus('saved'); else showToast('Log saved!', 'success')
   } catch { if (silent) dashSetStatus('error'); else showToast('Error saving. Try again.', 'error') }
 }
