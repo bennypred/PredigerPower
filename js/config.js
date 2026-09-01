@@ -9,7 +9,8 @@ const DEMO_MODE = false
 
 const SUPABASE_URL          = 'https://bnjfvbiuumtxtngqmieo.supabase.co'
 const SUPABASE_ANON         = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuamZ2Yml1dW10eHRuZ3FtaWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDE2MDcsImV4cCI6MjA5NzM3NzYwN30.oPo4ezJGRNcjYV_Ky0pWbgIrV49uNpr0uAQxVIbrDWY'
-const SUPABASE_SERVICE_ROLE = 'YOUR_SERVICE_ROLE_KEY'
+// No service role key here — it must never ship to the browser. Athlete
+// creation runs server-side via the create-athlete Edge Function instead.
 
 // ── EmailJS (for athlete code delivery) ──────────────────────
 const EMAILJS_SERVICE_ID  = 'YOUR_SERVICE_ID'

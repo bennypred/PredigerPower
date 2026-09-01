@@ -1647,10 +1647,6 @@ async function _nextAthleteCode() {
   return String(nums.length ? Math.max(...nums) + 1 : 106).padStart(3, '0')
 }
 
-function _generatePlaceholderPassword() {
-  return Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(36)).join('').slice(0, 20)
-}
-
 async function addAthlete() {
   const name   = document.getElementById('new-athlete-name')?.value.trim()
   const email  = document.getElementById('new-athlete-email')?.value.trim().toLowerCase()
@@ -1697,35 +1693,18 @@ async function addAthlete() {
   }
 
   try {
-    const code = await _nextAthleteCode()
-    // No email? Athletes without one sign in with their athlete code only —
-    // Supabase Auth still needs a unique email + password under the hood,
-    // so generate placeholders the athlete never sees or needs.
-    const finalEmail = email || `athlete-${code.toLowerCase()}@athletes.p3.local`
-    const finalPass  = pass  || _generatePlaceholderPassword()
-
-    const adminSB = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
-    const { data: authData, error } = await adminSB.auth.admin.createUser({
-      email: finalEmail, password: finalPass,
-      user_metadata: { full_name: name, role: 'athlete' },
-      email_confirm: true,
+    // Athlete creation needs the service role key, which must never reach the
+    // browser — the create-athlete Edge Function holds it server-side instead.
+    const { data: result, error: fnErr } = await window._supabase.functions.invoke('create-athlete', {
+      body: { name, email, password: pass, sport, gender, grade, age },
     })
-    if (error) throw error
-
-    // Update the auto-created profile with all extra fields
-    const { error: profErr } = await window._supabase.from('profiles').update({
-      athlete_code: code,
-      sport:        sport  || null,
-      gender:       gender || null,
-      grade:        grade  || null,
-      age:          age ? parseInt(age) : null,
-    }).eq('id', authData.user.id)
-    if (profErr) throw profErr
+    if (fnErr) throw fnErr
+    if (result?.error) throw new Error(result.error)
 
     document.getElementById('add-athlete-form').style.display    = 'none'
     document.getElementById('add-athlete-success').style.display = 'block'
     document.getElementById('add-athlete-success-name').textContent = name + ' added!'
-    document.getElementById('add-athlete-code-display').textContent = code
+    document.getElementById('add-athlete-code-display').textContent = result.code
 
     _adminAthletes = await getAthletes()
     document.getElementById('panel_athletes').innerHTML = renderAthletes(_adminAthletes)
