@@ -165,7 +165,7 @@ function renderOverview(athletes, metrics) {
             <div class="avatar">${initials(a.full_name)}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:15px;font-weight:600;color:white;">${a.full_name}</div>
-              <div style="font-size:12px;color:#71717a;">${a.email} · ${sess} sessions</div>
+              <div style="font-size:12px;color:#71717a;">${displayEmail(a.email)} · ${sess} sessions</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               ${bw ? statPill(bw, 'lbs', 'Weight') : ''}
@@ -1592,7 +1592,7 @@ function renderAthletes(athletes) {
               <div class="avatar">${initials(a.full_name)}</div>
               <div style="flex:1;min-width:0;">
                 <div style="font-size:14px;font-weight:600;color:white;">${a.full_name}</div>
-                <div style="font-size:12px;color:#71717a;">${a.email || '—'}</div>
+                <div style="font-size:12px;color:#71717a;">${displayEmail(a.email)}</div>
               </div>
               <div style="display:flex;align-items:center;gap:10px;">
                 ${a.athlete_code ? `<span style="font-size:12px;font-weight:800;color:#f97316;letter-spacing:0.1em;font-family:monospace;background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);border-radius:6px;padding:3px 8px;">${a.athlete_code}</span>` : ''}
@@ -1647,6 +1647,10 @@ async function _nextAthleteCode() {
   return String(nums.length ? Math.max(...nums) + 1 : 106).padStart(3, '0')
 }
 
+function _generatePlaceholderPassword() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(36)).join('').slice(0, 20)
+}
+
 async function addAthlete() {
   const name   = document.getElementById('new-athlete-name')?.value.trim()
   const email  = document.getElementById('new-athlete-email')?.value.trim().toLowerCase()
@@ -1656,11 +1660,11 @@ async function addAthlete() {
   const grade  = document.getElementById('new-athlete-grade')?.value  || ''
   const age    = document.getElementById('new-athlete-age')?.value    || ''
 
-  if (!name || !email) { showToast('Name and email are required.', 'error'); return }
+  if (!name) { showToast('Name is required.', 'error'); return }
 
   if (DEMO_MODE) {
     const local = lsGet('p3_demo_athletes') || []
-    if (local.find(a => a.email?.toLowerCase() === email)) {
+    if (email && local.find(a => a.email?.toLowerCase() === email)) {
       showToast('An account with that email already exists.', 'error'); return
     }
 
@@ -1668,7 +1672,7 @@ async function addAthlete() {
     const athlete = {
       id:           'da_' + Date.now(),
       full_name:    name,
-      email,
+      email:        email || null,
       password:     pass || null,
       role:         'athlete',
       sport:        sport  || null,
@@ -1693,10 +1697,16 @@ async function addAthlete() {
   }
 
   try {
-    const code    = await _nextAthleteCode()
+    const code = await _nextAthleteCode()
+    // No email? Athletes without one sign in with their athlete code only —
+    // Supabase Auth still needs a unique email + password under the hood,
+    // so generate placeholders the athlete never sees or needs.
+    const finalEmail = email || `athlete-${code.toLowerCase()}@athletes.p3.local`
+    const finalPass  = pass  || _generatePlaceholderPassword()
+
     const adminSB = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
     const { data: authData, error } = await adminSB.auth.admin.createUser({
-      email, password: pass,
+      email: finalEmail, password: finalPass,
       user_metadata: { full_name: name, role: 'athlete' },
       email_confirm: true,
     })

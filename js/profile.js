@@ -336,7 +336,7 @@ function renderProfile(user, athlete, config, liftHistory, metricHist, attendanc
           <div style="font-size:22px;font-weight:800;color:white;">${athlete.full_name}</div>
           <div style="font-size:13px;color:#71717a;margin-top:2px;">
             ${[athlete.sport, athlete.grade ? `Grade ${athlete.grade}` : null, athlete.age ? `Age ${athlete.age}` : null].filter(Boolean).join(' · ')}
-            ${athlete.email ? `<span style="margin-left:6px;">· ${athlete.email}</span>` : ''}
+            <span style="margin-left:6px;">· ${displayEmail(athlete.email)}</span>
             · ${sessions} sessions
           </div>
           ${trainer && athlete.athlete_code ? `

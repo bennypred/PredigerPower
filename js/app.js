@@ -125,6 +125,14 @@ function initials(name) {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 }
 
+// Athletes created without an email get an internal placeholder address
+// (see addAthlete in admin.js) — show something readable instead of it.
+function displayEmail(email) {
+  if (!email) return 'Code login only'
+  if (email.endsWith('@athletes.p3.local')) return 'Code login only'
+  return email
+}
+
 function getAthleteById(id) {
   const local = lsGet('p3_demo_athletes') || []
   return DEMO_ATHLETES.find(a => a.id === id)
